@@ -40,6 +40,13 @@
             padding: 15px;
             min-width: 250px;
             backdrop-filter: blur(5px);
+            transition: opacity 0.5s ease-in-out;
+            opacity: 1;
+        }
+
+        #controls-panel.hidden {
+            opacity: 0;
+            pointer-events: none;
         }
 
         #info-panel {
@@ -51,6 +58,13 @@
             border-radius: 8px;
             padding: 15px;
             backdrop-filter: blur(5px);
+            transition: opacity 0.5s ease-in-out;
+            opacity: 1;
+        }
+
+        #info-panel.hidden {
+            opacity: 0;
+            pointer-events: none;
         }
 
         .control-group {
@@ -170,8 +184,8 @@
         <div id="controls-panel">
             <div class="control-group">
                 <label for="block-count">Block Count</label>
-                <input type="range" id="block-count" min="1" max="9261" value="125" step="1">
-                <div class="value-display" id="block-count-value">125 blocks (5×5×5)</div>
+                <input type="range" id="block-count" min="1" max="21952" value="1000" step="1">
+                <div class="value-display" id="block-count-value">1000 blocks (10×10×10)</div>
             </div>
             
             <div class="control-group">
@@ -182,8 +196,8 @@
             
             <div class="control-group">
                 <label for="block-spacing">Block Spacing</label>
-                <input type="range" id="block-spacing" min="0" max="50" value="10" step="1">
-                <div class="value-display" id="block-spacing-value">10%</div>
+                <input type="range" id="block-spacing" min="10" max="100" value="50" step="1">
+                <div class="value-display" id="block-spacing-value">50%</div>
             </div>
             
             <div class="control-group">
@@ -201,7 +215,6 @@
             <div style="font-size: 10px; margin-top: 5px;">Bitcoin Visualization</div>
             <div style="font-size: 10px; margin-top: 10px;">
                 <div>Camera: <span id="camera-info">Loading...</span></div>
-                <div>FPS: <span id="fps-counter">--</span></div>
             </div>
         </div>
 
@@ -280,6 +293,11 @@
         let currentZoom = 0;
         let lastInteractionTime = Date.now();
         
+        // Auto-hiding controls system
+        let controlsVisible = true;
+        let hideControlsTimeout;
+        const CONTROLS_HIDE_DELAY = 3000; // 3 seconds
+        
         // Animation system
         let animationClock;
         let sparkleParticles = [];
@@ -288,7 +306,6 @@
         // Performance monitoring
         let lastTime = 0;
         let frameCount = 0;
-        let fps = 0;
 
         function initDigitalManhattan() {
             try {
@@ -306,7 +323,7 @@
                 initAnimationSystem();
                 
                 // Generate initial Bitcoin blocks
-                generateBitcoinBlocks(125); // Default 5x5x5 cube
+                generateBitcoinBlocks(1000); // Default 10x10x10 cube
                 
                 // Initialize UI controls
                 initUIControls();
@@ -319,6 +336,8 @@
                 // Hide loading screen
                 setTimeout(() => {
                     document.getElementById('loading').style.display = 'none';
+                    // Start auto-hiding controls timer
+                    showControls();
                 }, 500);
                 
             } catch (error) {
@@ -429,7 +448,7 @@
                 mouseX = event.clientX;
                 mouseY = event.clientY;
                 canvas.style.cursor = 'grabbing';
-                lastInteractionTime = Date.now();
+                onUserInteraction();
             });
 
             canvas.addEventListener('mousemove', (event) => {
@@ -446,7 +465,7 @@
 
                 mouseX = event.clientX;
                 mouseY = event.clientY;
-                lastInteractionTime = Date.now();
+                onUserInteraction();
             });
 
             canvas.addEventListener('mouseup', () => {
@@ -476,7 +495,7 @@
                     // Zoom in
                     currentZoom = Math.max(minDistance, currentZoom * (1 - zoomSpeed));
                 }
-                lastInteractionTime = Date.now();
+                onUserInteraction();
             });
 
             // Touch controls for mobile/tablet
@@ -486,6 +505,7 @@
                 event.preventDefault();
                 touches = Array.from(event.touches);
                 isTouchActive = true;
+                onUserInteraction();
 
                 if (touches.length === 1) {
                     // Single touch - rotation
@@ -504,6 +524,7 @@
                 if (!isTouchActive) return;
 
                 touches = Array.from(event.touches);
+                onUserInteraction();
 
                 if (touches.length === 1) {
                     // Single touch rotation
@@ -590,7 +611,7 @@
             // Keyboard rotation controls
             document.addEventListener('keydown', (event) => {
                 const rotationSpeed = 0.05;
-                lastInteractionTime = Date.now(); // Reset auto-rotation timer
+                onUserInteraction(); // Show controls and reset auto-rotation timer
                 
                 switch(event.key) {
                     case 'ArrowLeft':
@@ -640,29 +661,51 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        function updateFPS() {
-            frameCount++;
-            const currentTime = performance.now();
-            
-            if (currentTime - lastTime >= 1000) {
-                fps = Math.round((frameCount * 1000) / (currentTime - lastTime));
-                document.getElementById('fps-counter').textContent = fps;
-                frameCount = 0;
-                lastTime = currentTime;
-            }
-        }
+
 
         function updateCameraInfo() {
             const distance = Math.round(camera.position.length() * 10) / 10;
             document.getElementById('camera-info').textContent = `Distance: ${distance}`;
         }
 
+        // Auto-hiding controls functions
+        function showControls() {
+            if (!controlsVisible) {
+                controlsVisible = true;
+                document.getElementById('controls-panel').classList.remove('hidden');
+                document.getElementById('info-panel').classList.remove('hidden');
+            }
+            
+            // Clear existing timeout
+            if (hideControlsTimeout) {
+                clearTimeout(hideControlsTimeout);
+            }
+            
+            // Set new timeout to hide controls
+            hideControlsTimeout = setTimeout(() => {
+                hideControls();
+            }, CONTROLS_HIDE_DELAY);
+        }
+
+        function hideControls() {
+            if (controlsVisible) {
+                controlsVisible = false;
+                document.getElementById('controls-panel').classList.add('hidden');
+                document.getElementById('info-panel').classList.add('hidden');
+            }
+        }
+
+        function onUserInteraction() {
+            showControls();
+            lastInteractionTime = Date.now();
+        }
+
 
 
         // Bitcoin Block Generation System
-        let currentBlockCount = 125;
+        let currentBlockCount = 1000;
         let currentBlockSize = 1.0;
-        let currentBlockSpacing = 0.1;
+        let currentBlockSpacing = 0.5;
         let blockGeometry, blockMaterial;
 
         function createBitcoinBlockMaterial() {
@@ -793,22 +836,28 @@
             blockCountSlider.addEventListener('input', (event) => {
                 const newCount = parseInt(event.target.value);
                 generateBitcoinBlocks(newCount);
+                onUserInteraction();
             });
 
             // Block size slider
             blockSizeSlider.addEventListener('input', (event) => {
                 const newSize = parseInt(event.target.value) / 100;
                 updateBlockSize(newSize);
+                onUserInteraction();
             });
 
             // Block spacing slider
             blockSpacingSlider.addEventListener('input', (event) => {
                 const newSpacing = parseInt(event.target.value) / 100;
                 updateBlockSpacing(newSpacing);
+                onUserInteraction();
             });
 
             // Fullscreen button
-            fullscreenBtn.addEventListener('click', toggleFullscreen);
+            fullscreenBtn.addEventListener('click', () => {
+                toggleFullscreen();
+                onUserInteraction();
+            });
 
             // Keyboard controls
             initKeyboardControls();
@@ -945,7 +994,6 @@
             }
             
             // Update UI info
-            updateFPS();
             updateCameraInfo();
             
             // Render scene
