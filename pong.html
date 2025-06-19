@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ping Pong Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1976D2, #2196F3);
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: white;
+        }
+
+        .game-container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        #gameCanvas {
+            border: 3px solid white;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+
+        .start-screen, .game-over-screen {
+            padding: 40px;
+        }
+
+        .difficulty-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin: 30px 0;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid white;
+            color: white;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .score-display {
+            position: absolute;
+            top: -60px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 2.5em;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+            color: white;
+            z-index: 10;
+            display: none;
+        }
+
+        .controls-info {
+            margin-top: 30px;
+            font-size: 0.9em;
+            opacity: 0.8;
+            line-height: 1.6;
+        }
+
+        .game-over-screen {
+            display: none;
+        }
+
+        .game-over-message {
+            font-size: 2em;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .win {
+            color: #4CAF50;
+        }
+
+        .lose {
+            color: #F44336;
+        }
+
+        .pause-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 3em;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🏓 Ping Pong Game</h1>
+        
+        <!-- Start Screen -->
+        <div class="start-screen" id="startScreen">
+            <p>Choose your difficulty level:</p>
+            <div class="difficulty-buttons">
+                <button class="btn" onclick="startGame('easy')">Easy</button>
+                <button class="btn" onclick="startGame('medium')">Medium</button>
+                <button class="btn" onclick="startGame('hard')">Hard</button>
+            </div>
+            <div class="controls-info">
+                <p><strong>Controls:</strong></p>
+                <p>🎮 Keyboard: Arrow Keys or W/S</p>
+                <p>⏸️ Spacebar: Pause/Resume</p>
+                <p>🎯 First to 17 points wins!</p>
+            </div>
+        </div>
+
+        <!-- Game Canvas -->
+        <canvas id="gameCanvas" width="1000" height="600"></canvas>
+        
+        <!-- Score Display -->
+        <div class="score-display" id="scoreDisplay">
+            <span id="playerScore">0</span> - <span id="aiScore">0</span>
+        </div>
+
+        <!-- Pause Indicator -->
+        <div class="pause-indicator" id="pauseIndicator">PAUSED</div>
+
+        <!-- Game Over Screen -->
+        <div class="game-over-screen" id="gameOverScreen">
+            <div class="game-over-message" id="gameOverMessage"></div>
+            <p id="finalScore"></p>
+            <button class="btn" onclick="showStartScreen()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Game variables
+        let canvas, ctx;
+        let gameState = 'start'; // 'start', 'playing', 'paused', 'gameOver'
+        let difficulty = 'medium';
+        let animationId;
+
+        // Game objects
+        let ball, playerPaddle, aiPaddle;
+        let playerScore = 0, aiScore = 0;
+
+        // Input handling
+        let keys = {};
+
+        // Audio context for sound effects
+        let audioContext;
+
+        // Initialize the game
+        function init() {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            
+            // Initialize audio context
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) {
+                console.log('Web Audio API not supported');
+            }
+
+            setupEventListeners();
+        }
+
+        // Event listeners
+        function setupEventListeners() {
+            // Keyboard events
+            document.addEventListener('keydown', (e) => {
+                keys[e.key] = true;
+                if (e.key === ' ') {
+                    e.preventDefault();
+                    if (gameState === 'playing') {
+                        pauseGame();
+                    } else if (gameState === 'paused') {
+                        resumeGame();
+                    }
+                }
+            });
+
+            document.addEventListener('keyup', (e) => {
+                keys[e.key] = false;
+            });
+
+            // Mouse events removed - keyboard only
+        }
+
+        // Ball class
+        class Ball {
+            constructor() {
+                this.radius = 12; // Made bigger for visibility
+                this.baseSpeed = 5;
+                this.maxSpeed = 12;
+                this.reset();
+            }
+
+            reset() {
+                // Ensure canvas is available
+                if (!canvas) {
+                    console.error('Canvas not initialized');
+                    return;
+                }
+                
+                this.x = canvas.width / 2;
+                this.y = canvas.height / 2;
+                this.speed = this.baseSpeed;
+                
+                // Random initial direction
+                const angle = (Math.random() - 0.5) * Math.PI / 3; // ±30 degrees
+                const direction = Math.random() < 0.5 ? 1 : -1;
+                this.vx = direction * this.speed * Math.cos(angle);
+                this.vy = this.speed * Math.sin(angle);
+                
+                console.log('Ball reset to:', this.x, this.y, 'with velocity:', this.vx, this.vy);
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Ball collision with top and bottom walls
+                if (this.y - this.radius <= 0 || this.y + this.radius >= canvas.height) {
+                    this.vy = -this.vy;
+                    playSound('wall');
+                }
+
+                // Ball collision with paddles
+                if (this.checkPaddleCollision(playerPaddle) || this.checkPaddleCollision(aiPaddle)) {
+                    this.vx = -this.vx;
+                    this.increaseSpeed();
+                    playSound('paddle');
+                }
+
+                // Score points
+                if (this.x < 0) {
+                    aiScore++;
+                    playSound('score');
+                    this.reset();
+                    checkWinCondition();
+                } else if (this.x > canvas.width) {
+                    playerScore++;
+                    playSound('score');
+                    this.reset();
+                    checkWinCondition();
+                }
+            }
+
+            checkPaddleCollision(paddle) {
+                return this.x - this.radius <= paddle.x + paddle.width &&
+                       this.x + this.radius >= paddle.x &&
+                       this.y - this.radius <= paddle.y + paddle.height &&
+                       this.y + this.radius >= paddle.y;
+            }
+
+            increaseSpeed() {
+                if (this.speed < this.maxSpeed) {
+                    this.speed += 0.2;
+                    const speedRatio = this.speed / Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                    this.vx *= speedRatio;
+                    this.vy *= speedRatio;
+                }
+            }
+
+            draw() {
+                if (!ctx) {
+                    console.error('Canvas context not available');
+                    return;
+                }
+                
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Add a subtle glow effect
+                ctx.shadowColor = 'white';
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        // Paddle class
+        class Paddle {
+            constructor(x, isPlayer = false) {
+                this.x = x;
+                this.y = canvas.height / 2 - 40;
+                this.width = 12;
+                this.height = 80;
+                this.speed = 6;
+                this.isPlayer = isPlayer;
+            }
+
+            update() {
+                if (this.isPlayer) {
+                    this.updatePlayer();
+                } else {
+                    this.updateAI();
+                }
+
+                // Keep paddle within bounds
+                this.y = Math.max(0, Math.min(canvas.height - this.height, this.y));
+            }
+
+            updatePlayer() {
+                // Keyboard controls only
+                if (keys['ArrowUp'] || keys['w'] || keys['W']) {
+                    this.y -= this.speed;
+                }
+                if (keys['ArrowDown'] || keys['s'] || keys['S']) {
+                    this.y += this.speed;
+                }
+            }
+
+            updateAI() {
+                const ballCenterY = ball.y;
+                const paddleCenterY = this.y + this.height / 2;
+                const diff = ballCenterY - paddleCenterY;
+
+                let aiSpeed = this.speed;
+                let accuracy = 1;
+
+                // Adjust AI behavior based on difficulty
+                switch (difficulty) {
+                    case 'easy':
+                        aiSpeed *= 0.6;
+                        accuracy = 0.7;
+                        break;
+                    case 'medium':
+                        aiSpeed *= 0.8;
+                        accuracy = 0.85;
+                        break;
+                    case 'hard':
+                        aiSpeed *= 1.0;
+                        accuracy = 0.95;
+                        break;
+                }
+
+                // Add some randomness for lower difficulties
+                if (Math.random() > accuracy) {
+                    return; // Skip this frame
+                }
+
+                if (Math.abs(diff) > 5) {
+                    this.y += diff > 0 ? aiSpeed : -aiSpeed;
+                }
+            }
+
+            draw() {
+                ctx.fillStyle = this.isPlayer ? '#2196F3' : '#1976D2';
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+            }
+        }
+
+        // Game functions
+        function startGame(selectedDifficulty) {
+            console.log('Starting game with difficulty:', selectedDifficulty);
+            
+            // Initialize audio context on user interaction (required by browsers)
+            if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
+            difficulty = selectedDifficulty;
+            gameState = 'playing';
+            
+            // Reset scores
+            playerScore = 0;
+            aiScore = 0;
+            
+            // Initialize game objects
+            console.log('Canvas dimensions:', canvas.width, canvas.height);
+            ball = new Ball();
+            playerPaddle = new Paddle(20, true);
+            aiPaddle = new Paddle(canvas.width - 32, false);
+            
+            console.log('Game objects created:', ball, playerPaddle, aiPaddle);
+            
+            // Show game elements
+            document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('gameOverScreen').style.display = 'none';
+            document.getElementById('gameCanvas').style.display = 'block';
+            document.getElementById('scoreDisplay').style.display = 'block';
+            
+            updateScoreDisplay();
+            console.log('Starting game loop...');
+            gameLoop();
+        }
+
+        function pauseGame() {
+            gameState = 'paused';
+            document.getElementById('pauseIndicator').style.display = 'block';
+        }
+
+        function resumeGame() {
+            gameState = 'playing';
+            document.getElementById('pauseIndicator').style.display = 'none';
+            gameLoop();
+        }
+
+        function checkWinCondition() {
+            if (playerScore >= 17 || aiScore >= 17) {
+                gameState = 'gameOver';
+                showGameOverScreen();
+            }
+        }
+
+        function showGameOverScreen() {
+            document.getElementById('gameCanvas').style.display = 'none';
+            document.getElementById('scoreDisplay').style.display = 'none';
+            document.getElementById('pauseIndicator').style.display = 'none';
+            
+            const gameOverScreen = document.getElementById('gameOverScreen');
+            const gameOverMessage = document.getElementById('gameOverMessage');
+            const finalScore = document.getElementById('finalScore');
+            
+            if (playerScore >= 17) {
+                gameOverMessage.textContent = 'You Win! 🎉';
+                gameOverMessage.className = 'game-over-message win';
+            } else {
+                gameOverMessage.textContent = 'You Lose! 😔';
+                gameOverMessage.className = 'game-over-message lose';
+            }
+            
+            finalScore.textContent = `Final Score: ${playerScore} - ${aiScore}`;
+            gameOverScreen.style.display = 'block';
+        }
+
+        function showStartScreen() {
+            gameState = 'start';
+            document.getElementById('gameOverScreen').style.display = 'none';
+            document.getElementById('startScreen').style.display = 'block';
+        }
+
+        function updateScoreDisplay() {
+            document.getElementById('playerScore').textContent = playerScore;
+            document.getElementById('aiScore').textContent = aiScore;
+        }
+
+        // Sound functions
+        function playSound(type) {
+            if (!audioContext) return;
+            
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            // Different sounds for different events
+            switch (type) {
+                case 'paddle':
+                    oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+                    break;
+                case 'wall':
+                    oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
+                    break;
+                case 'score':
+                    oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
+                    break;
+            }
+            
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.1);
+        }
+
+        // Game loop
+        function gameLoop() {
+            if (gameState !== 'playing') return;
+            
+            // Clear canvas with solid black background
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw center line
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Update game objects
+            if (ball) ball.update();
+            if (playerPaddle) playerPaddle.update();
+            if (aiPaddle) aiPaddle.update();
+            
+            // Draw game objects
+            if (ball) ball.draw();
+            if (playerPaddle) playerPaddle.draw();
+            if (aiPaddle) aiPaddle.draw();
+            
+            // Update score display
+            updateScoreDisplay();
+            
+            // Continue game loop
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        // Initialize the game when page loads
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html> 
