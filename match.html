@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="description" content="Memory Matching Card Game - Flip cards to find matching pairs">
+    <meta name="theme-color" content="#2c5530">
+    <title>Memory Match - Card Game</title>
+    
+    <style>
+        /* CSS Reset and Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #2c5530, #3d7c47);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            color: #333;
+            overflow-x: hidden;
+        }
+        
+        /* Header Styles */
+        .header {
+            text-align: center;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .header h1 {
+            color: white;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .header p {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 1.1rem;
+        }
+        
+        /* Main Game Area */
+        .game-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .game-area {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+            max-width: 800px;
+            width: 100%;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 15px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+        }
+        
+        /* Setup Screen Styles */
+        .setup-screen {
+            text-align: center;
+            width: 100%;
+        }
+        
+        .setup-title {
+            font-size: 2rem;
+            color: #2c5530;
+            margin-bottom: 15px;
+        }
+        
+        .setup-instructions {
+            font-size: 1.1rem;
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        
+        .setup-form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .input-group label {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .input-group input {
+            padding: 12px 20px;
+            font-size: 1.1rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            width: 120px;
+            text-align: center;
+            transition: border-color 0.3s ease;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: #2c5530;
+            box-shadow: 0 0 0 3px rgba(44, 85, 48, 0.1);
+        }
+        
+        .input-group input[readonly] {
+            background-color: #f8f9fa;
+            color: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .input-hint {
+            font-size: 0.9rem;
+            color: #888;
+            margin-top: 5px;
+        }
+        
+        .start-button {
+            background: linear-gradient(135deg, #2c5530, #3d7c47);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(44, 85, 48, 0.3);
+        }
+        
+        .start-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(44, 85, 48, 0.4);
+        }
+        
+        .start-button:active {
+            transform: translateY(0);
+        }
+        
+        .start-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .leaderboard-button {
+            background: transparent;
+            color: #2c5530;
+            border: 2px solid #2c5530;
+            padding: 10px 25px;
+            font-size: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 15px;
+        }
+        
+        .leaderboard-button:hover {
+            background: #2c5530;
+            color: white;
+        }
+        
+        /* Game Board Styles */
+        .game-board {
+            width: 100%;
+            display: grid;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+        }
+        
+        .timer-display {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #2c5530;
+        }
+        
+        .pairs-counter {
+            font-size: 1.2rem;
+            color: #666;
+        }
+        
+        .game-controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .control-button {
+            padding: 8px 15px;
+            border: 2px solid #2c5530;
+            background: transparent;
+            color: #2c5530;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+        
+        .control-button:hover {
+            background: #2c5530;
+            color: white;
+        }
+        
+        /* Card Styles */
+        .card {
+            aspect-ratio: 3/4;
+            background: linear-gradient(145deg, #ffffff, #f0f0f0);
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            min-height: 80px;
+            user-select: none;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .card:focus {
+            outline: 3px solid #2c5530;
+            outline-offset: 2px;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .card.flipped {
+            background: linear-gradient(145deg, #fff, #f8f9fa);
+            border-color: #2c5530;
+            transform: rotateY(180deg);
+        }
+        
+        .card.matched {
+            opacity: 0;
+            transform: scale(0.8);
+            pointer-events: none;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        
+        .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(45deg, #2c5530, #3d7c47);
+            border-radius: 10px;
+            color: white;
+            font-size: 1.5rem;
+        }
+        
+        .card-front {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            transform: rotateY(180deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+        }
+        
+        .card-symbol {
+            font-size: 4rem;
+            color: #2c5530;
+            line-height: 1;
+        }
+        
+        .card-symbol.red {
+            color: #dc3545;
+        }
+        
+        .card-image {
+            width: 80%;
+            height: 80%;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+        
+        /* Leaderboard Styles */
+        .leaderboard-screen {
+            text-align: center;
+            width: 100%;
+        }
+        
+        .leaderboard-title {
+            font-size: 2rem;
+            color: #2c5530;
+            margin-bottom: 20px;
+        }
+        
+        .leaderboard-content {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+        
+        .pairs-group {
+            margin-bottom: 25px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            border: 2px solid #e9ecef;
+        }
+        
+        .pairs-group-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #2c5530;
+            margin-bottom: 10px;
+        }
+        
+        .leaderboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        
+        .leaderboard-table th {
+            background: #2c5530;
+            color: white;
+            padding: 8px;
+            text-align: left;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .leaderboard-table td {
+            padding: 6px 8px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .leaderboard-table tr:nth-child(even) {
+            background: rgba(44, 85, 48, 0.05);
+        }
+        
+        .rank-medal {
+            font-size: 1.1rem;
+            margin-right: 5px;
+        }
+        
+        .no-scores {
+            color: #666;
+            font-style: italic;
+            padding: 20px;
+        }
+        
+        .leaderboard-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        /* Image Upload Styles */
+        .image-upload-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 2px dashed #ddd;
+        }
+        
+        .image-upload-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .image-upload-input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+        }
+        
+        .image-preview {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+            justify-content: center;
+        }
+        
+        .preview-image {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 2px solid #ddd;
+        }
+        
+        .clear-images-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+        
+        .clear-images-btn:hover {
+            background: #c82333;
+        }
+        
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 15px 0;
+        }
+        
+        .mode-button {
+            padding: 10px 20px;
+            border: 2px solid #2c5530;
+            background: transparent;
+            color: #2c5530;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .mode-button.active {
+            background: #2c5530;
+            color: white;
+        }
+        
+        .mode-button:hover {
+            background: #2c5530;
+            color: white;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .header p {
+                font-size: 1rem;
+            }
+            
+            .game-area {
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            .game-container {
+                padding: 10px;
+            }
+            
+            .setup-title {
+                font-size: 1.6rem;
+            }
+            
+            .setup-instructions {
+                font-size: 1rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .header {
+                padding: 15px;
+            }
+            
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .game-area {
+                padding: 15px;
+                min-height: 300px;
+            }
+            
+            .setup-title {
+                font-size: 1.4rem;
+            }
+            
+            .setup-instructions {
+                font-size: 0.9rem;
+                margin-bottom: 20px;
+            }
+            
+            .start-button {
+                padding: 12px 30px;
+                font-size: 1.1rem;
+            }
+            
+            .game-info {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+            
+            .game-controls {
+                justify-content: center;
+            }
+            
+            .card {
+                min-height: 60px;
+            }
+            
+            .card-symbol {
+                font-size: 3rem;
+            }
+        }
+        
+        /* Dynamic Grid Layouts */
+        .grid-2x2 { grid-template-columns: repeat(2, 1fr); }
+        .grid-2x3 { grid-template-columns: repeat(3, 1fr); }
+        .grid-3x4 { grid-template-columns: repeat(4, 1fr); }
+        .grid-4x4 { grid-template-columns: repeat(4, 1fr); }
+        .grid-4x5 { grid-template-columns: repeat(5, 1fr); }
+        .grid-5x6 { grid-template-columns: repeat(6, 1fr); }
+        .grid-6x6 { grid-template-columns: repeat(6, 1fr); }
+        .grid-5x8 { grid-template-columns: repeat(8, 1fr); }
+        .grid-4x10 { grid-template-columns: repeat(10, 1fr); }
+        
+        @media (max-width: 768px) {
+            .grid-4x5 { grid-template-columns: repeat(5, 1fr); }
+            .grid-5x6 { grid-template-columns: repeat(6, 1fr); }
+            .grid-6x6 { grid-template-columns: repeat(6, 1fr); }
+            .grid-5x8 { grid-template-columns: repeat(6, 1fr); }
+            .grid-4x10 { grid-template-columns: repeat(5, 1fr); }
+        }
+        
+        @media (max-width: 480px) {
+            .grid-2x3 { grid-template-columns: repeat(3, 1fr); }
+            .grid-3x4 { grid-template-columns: repeat(4, 1fr); }
+            .grid-4x4 { grid-template-columns: repeat(4, 1fr); }
+            .grid-4x5 { grid-template-columns: repeat(4, 1fr); }
+            .grid-5x6 { grid-template-columns: repeat(4, 1fr); }
+            .grid-6x6 { grid-template-columns: repeat(4, 1fr); }
+            .grid-5x8 { grid-template-columns: repeat(4, 1fr); }
+            .grid-4x10 { grid-template-columns: repeat(4, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header Section -->
+    <header class="header">
+        <h1>🃏 Memory Match</h1>
+        <p>Flip cards to find matching pairs - Beat your best time!</p>
+    </header>
+    
+    <!-- Main Game Container -->
+    <main class="game-container">
+        <div class="game-area" id="gameArea">
+            <!-- Game content will be dynamically inserted here -->
+        </div>
+    </main>
+    
+    <!-- Footer -->
+    <footer class="footer">
+        <p>&copy; 2024 Memory Match Game - Challenge your memory!</p>
+    </footer>
+    
+    <script>
+        // Main Game Object
+        const MemoryGame = {
+            // Game state
+            gameState: 'setup', // 'setup', 'playing', 'completed'
+            currentPairs: 0,
+            cards: [],
+            flippedCards: [],
+            matchedPairs: 0,
+            timer: {
+                startTime: null,
+                currentTime: 0,
+                interval: null
+            },
+            
+            // Game configuration
+            symbols: ['♠', '♥', '♦', '♣', '★', '●', '▲', '■', '♪', '☀', '🌙', '⚡', '🔥', '💎', '🍀', '🎯', '🎭', '🎨', '🎪', '🎲'],
+            maxPairsForScreen: 15,
+            gameMode: 'symbols', // 'symbols' or 'images'
+            customImages: [],
+            
+            // Initialize the game
+            init() {
+                this.calculateMaxPairs();
+                this.showSetupScreen();
+                this.loadLeaderboard();
+            },
+            
+            // Calculate maximum pairs based on screen size
+            calculateMaxPairs() {
+                const screenWidth = window.innerWidth;
+                const screenHeight = window.innerHeight;
+                
+                if (screenWidth < 480) {
+                    this.maxPairsForScreen = 8; // 4x4 grid
+                } else if (screenWidth < 768) {
+                    this.maxPairsForScreen = 12; // 4x6 or 3x8 grid
+                } else {
+                    this.maxPairsForScreen = 15; // Up to 5x6 grid (30 cards total)
+                }
+            },
+            
+            // Show setup screen
+            showSetupScreen() {
+                const gameArea = document.getElementById('gameArea');
+                gameArea.innerHTML = `
+                    <div class="setup-screen">
+                        <h2 class="setup-title">🎮 Ready to Play?</h2>
+                        <p class="setup-instructions">
+                            Choose how many pairs of cards you'd like to match.<br>
+                            The timer starts when you flip your first card!
+                        </p>
+                        
+                        <div class="mode-selector">
+                            <button class="mode-button ${this.gameMode === 'symbols' ? 'active' : ''}" id="symbolsMode">
+                                🃏 Symbols
+                            </button>
+                            <button class="mode-button ${this.gameMode === 'images' ? 'active' : ''}" id="imagesMode">
+                                🖼️ Custom Images
+                            </button>
+                        </div>
+                        
+                        <div class="image-upload-section" id="imageUploadSection" style="display: ${this.gameMode === 'images' ? 'block' : 'none'}">
+                            <div class="image-upload-title">📸 Upload Your Images</div>
+                            <input 
+                                type="file" 
+                                id="imageUpload" 
+                                class="image-upload-input"
+                                accept="image/*" 
+                                multiple
+                            >
+                            <div class="image-preview" id="imagePreview">
+                                ${this.customImages.map((img, index) => 
+                                    `<img src="${img}" class="preview-image" alt="Custom image ${index + 1}">`
+                                ).join('')}
+                            </div>
+                            ${this.customImages.length > 0 ? 
+                                '<button type="button" class="clear-images-btn" id="clearImagesBtn">🗑️ Clear Images</button>' : ''
+                            }
+                            <div class="input-hint">Upload up to ${this.maxPairsForScreen} images (max 15 pairs = 30 cards total)</div>
+                        </div>
+                        
+                        <form class="setup-form" id="setupForm">
+                            <div class="input-group">
+                                <label for="pairsInput">Number of Pairs:</label>
+                                <input 
+                                    type="number" 
+                                    id="pairsInput" 
+                                    min="2" 
+                                    max="${this.getMaxPairsForMode()}" 
+                                    value="${this.getDefaultPairsValue()}"
+                                    ${this.gameMode === 'images' ? 'readonly' : ''}
+                                    required
+                                >
+                                <div class="input-hint">
+                                    ${this.gameMode === 'images' ? 
+                                        `Automatically set to match ${this.customImages.length} uploaded images` : 
+                                        `Min: 2, Max: ${this.getMaxPairsForMode()}`
+                                    }
+                                </div>
+                            </div>
+                            <button type="submit" class="start-button" id="startButton">
+                                🚀 Start Game
+                            </button>
+                        </form>
+                        <button class="leaderboard-button" id="leaderboardButton">
+                            🏆 View Leaderboard
+                        </button>
+                    </div>
+                `;
+                
+                this.attachSetupEventListeners();
+            },
+            
+            // Get maximum pairs for current mode
+            getMaxPairsForMode() {
+                if (this.gameMode === 'images') {
+                    return Math.min(this.customImages.length, this.maxPairsForScreen);
+                }
+                return this.maxPairsForScreen;
+            },
+            
+            // Get default pairs value for input
+            getDefaultPairsValue() {
+                if (this.gameMode === 'images') {
+                    return this.customImages.length;
+                }
+                return 6; // Default for symbols mode
+            },
+            
+            // Attach event listeners for setup screen
+            attachSetupEventListeners() {
+                const setupForm = document.getElementById('setupForm');
+                const pairsInput = document.getElementById('pairsInput');
+                const startButton = document.getElementById('startButton');
+                const leaderboardButton = document.getElementById('leaderboardButton');
+                const symbolsMode = document.getElementById('symbolsMode');
+                const imagesMode = document.getElementById('imagesMode');
+                const imageUpload = document.getElementById('imageUpload');
+                const clearImagesBtn = document.getElementById('clearImagesBtn');
+                
+                // Mode selection
+                symbolsMode.addEventListener('click', () => {
+                    this.gameMode = 'symbols';
+                    this.showSetupScreen();
+                });
+                
+                imagesMode.addEventListener('click', () => {
+                    this.gameMode = 'images';
+                    this.showSetupScreen();
+                });
+                
+                // Image upload
+                if (imageUpload) {
+                    imageUpload.addEventListener('change', (e) => {
+                        this.handleImageUpload(e);
+                    });
+                }
+                
+                // Clear images
+                if (clearImagesBtn) {
+                    clearImagesBtn.addEventListener('click', () => {
+                        this.customImages = [];
+                        this.showSetupScreen();
+                    });
+                }
+                
+                // Form submission
+                setupForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const pairs = parseInt(pairsInput.value);
+                    if (this.validatePairsInput(pairs)) {
+                        if (this.gameMode === 'images' && this.customImages.length === 0) {
+                            alert('Please upload at least 2 images to play in image mode!');
+                            return;
+                        }
+                        this.startGame(pairs);
+                    }
+                });
+                
+                // Real-time validation
+                pairsInput.addEventListener('input', () => {
+                    const pairs = parseInt(pairsInput.value);
+                    const isValid = this.validatePairsInput(pairs);
+                    startButton.disabled = !isValid;
+                    
+                    if (!isValid && pairsInput.value) {
+                        pairsInput.style.borderColor = '#e74c3c';
+                    } else {
+                        pairsInput.style.borderColor = '#ddd';
+                    }
+                });
+                
+                // Leaderboard button
+                leaderboardButton.addEventListener('click', () => {
+                    this.showLeaderboard();
+                });
+            },
+            
+            // Handle image upload
+            handleImageUpload(event) {
+                const files = Array.from(event.target.files);
+                
+                files.forEach(file => {
+                    if (file.type.startsWith('image/') && this.customImages.length < this.maxPairsForScreen) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            this.customImages.push(e.target.result);
+                            this.showSetupScreen(); // Refresh to show new images and update pairs input
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            },
+            
+            // Validate pairs input
+            validatePairsInput(pairs) {
+                const maxPairs = this.getMaxPairsForMode();
+                return pairs >= 2 && pairs <= maxPairs && !isNaN(pairs);
+            },
+            
+            // Start game with specified number of pairs
+            startGame(pairs) {
+                this.currentPairs = pairs;
+                this.gameState = 'playing';
+                this.matchedPairs = 0;
+                this.flippedCards = [];
+                this.resetTimer();
+                
+                this.generateCards();
+                this.createGameBoard();
+            },
+            
+            // Generate card pairs
+            generateCards() {
+                this.cards = [];
+                
+                if (this.gameMode === 'images') {
+                    // Use custom images
+                    const selectedImages = this.customImages.slice(0, this.currentPairs);
+                    selectedImages.forEach((image, index) => {
+                        this.cards.push({
+                            id: index * 2,
+                            content: image,
+                            type: 'image',
+                            isFlipped: false,
+                            isMatched: false
+                        });
+                        this.cards.push({
+                            id: index * 2 + 1,
+                            content: image,
+                            type: 'image',
+                            isFlipped: false,
+                            isMatched: false
+                        });
+                    });
+                } else {
+                    // Use symbols
+                    const selectedSymbols = this.symbols.slice(0, this.currentPairs);
+                    selectedSymbols.forEach((symbol, index) => {
+                        const isRed = ['♥', '♦'].includes(symbol);
+                        this.cards.push({
+                            id: index * 2,
+                            content: symbol,
+                            type: 'symbol',
+                            isRed: isRed,
+                            isFlipped: false,
+                            isMatched: false
+                        });
+                        this.cards.push({
+                            id: index * 2 + 1,
+                            content: symbol,
+                            type: 'symbol',
+                            isRed: isRed,
+                            isFlipped: false,
+                            isMatched: false
+                        });
+                    });
+                }
+                
+                // Shuffle cards using Fisher-Yates algorithm
+                this.shuffleCards();
+            },
+            
+            // Shuffle cards using Fisher-Yates algorithm
+            shuffleCards() {
+                for (let i = this.cards.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [this.cards[i], this.cards[j]] = [this.cards[j], this.cards[i]];
+                }
+            },
+            
+            // Create game board
+            createGameBoard() {
+                const gameArea = document.getElementById('gameArea');
+                const totalCards = this.cards.length;
+                const gridClass = this.getGridClass(totalCards);
+                
+                gameArea.innerHTML = `
+                    <div class="game-info">
+                        <div class="timer-display" id="timerDisplay">⏱️ 00:00</div>
+                        <div class="pairs-counter">
+                            Pairs: ${this.matchedPairs}/${this.currentPairs}
+                        </div>
+                        <div class="game-controls">
+                            <button class="control-button" id="newGameButton">🔄 New Game</button>
+                            <button class="control-button" id="backButton">⬅️ Back</button>
+                        </div>
+                    </div>
+                    <div class="game-board ${gridClass}" id="gameBoard">
+                        ${this.cards.map(card => this.createCardHTML(card)).join('')}
+                    </div>
+                `;
+                
+                this.attachGameEventListeners();
+            },
+            
+            // Get appropriate grid class based on number of cards
+            getGridClass(totalCards) {
+                const gridConfigs = {
+                    4: 'grid-2x2',    // 2 pairs
+                    6: 'grid-2x3',    // 3 pairs
+                    8: 'grid-4x4',    // 4 pairs
+                    10: 'grid-4x5',   // 5 pairs
+                    12: 'grid-3x4',   // 6 pairs
+                    14: 'grid-4x5',   // 7 pairs
+                    16: 'grid-4x4',   // 8 pairs
+                    18: 'grid-5x6',   // 9 pairs
+                    20: 'grid-4x5',   // 10 pairs
+                    22: 'grid-5x6',   // 11 pairs
+                    24: 'grid-5x6',   // 12 pairs
+                    26: 'grid-5x6',   // 13 pairs
+                    28: 'grid-5x8',   // 14 pairs
+                    30: 'grid-5x6'    // 15 pairs
+                };
+                
+                return gridConfigs[totalCards] || 'grid-5x6';
+            },
+            
+            // Create HTML for a single card
+            createCardHTML(card) {
+                let frontContent;
+                if (card.type === 'image') {
+                    frontContent = `<img src="${card.content}" class="card-image" alt="Card image">`;
+                } else {
+                    frontContent = `<span class="card-symbol ${card.isRed ? 'red' : ''}">${card.content}</span>`;
+                }
+                
+                return `
+                    <div class="card" data-card-id="${card.id}" id="card-${card.id}" tabindex="0" role="button" aria-label="Card ${card.id + 1}">
+                        <div class="card-back">🃏</div>
+                        <div class="card-front">
+                            ${frontContent}
+                        </div>
+                    </div>
+                `;
+            },
+            
+            // Attach event listeners for game board
+            attachGameEventListeners() {
+                const gameBoard = document.getElementById('gameBoard');
+                const newGameButton = document.getElementById('newGameButton');
+                const backButton = document.getElementById('backButton');
+                
+                // Card click/touch events
+                gameBoard.addEventListener('click', (e) => {
+                    const card = e.target.closest('.card');
+                    if (card && !card.classList.contains('flipped') && !card.classList.contains('matched')) {
+                        const cardId = parseInt(card.dataset.cardId);
+                        this.flipCard(cardId);
+                    }
+                });
+                
+                // Touch events for mobile
+                gameBoard.addEventListener('touchstart', (e) => {
+                    e.preventDefault(); // Prevent double-click zoom
+                    const card = e.target.closest('.card');
+                    if (card && !card.classList.contains('flipped') && !card.classList.contains('matched')) {
+                        const cardId = parseInt(card.dataset.cardId);
+                        this.flipCard(cardId);
+                    }
+                }, { passive: false });
+                
+                // Control buttons
+                newGameButton.addEventListener('click', () => {
+                    this.startGame(this.currentPairs);
+                });
+                
+                backButton.addEventListener('click', () => {
+                    this.gameState = 'setup';
+                    this.resetTimer();
+                    this.showSetupScreen();
+                });
+            },
+            
+            // Flip a card
+            flipCard(cardId) {
+                // Start timer on first card flip
+                if (!this.timer.startTime) {
+                    this.startTimer();
+                }
+                
+                // Don't allow more than 2 cards to be flipped
+                if (this.flippedCards.length >= 2) {
+                    return;
+                }
+                
+                const card = this.cards.find(c => c.id === cardId);
+                const cardElement = document.getElementById(`card-${cardId}`);
+                
+                if (!card || card.isFlipped || card.isMatched) {
+                    return;
+                }
+                
+                // Flip the card
+                card.isFlipped = true;
+                cardElement.classList.add('flipped');
+                this.flippedCards.push(card);
+                
+                // Check for match if two cards are flipped
+                if (this.flippedCards.length === 2) {
+                    setTimeout(() => {
+                        this.checkForMatch();
+                    }, 500);
+                }
+            },
+            
+            // Check if flipped cards match
+            checkForMatch() {
+                const [card1, card2] = this.flippedCards;
+                
+                if (card1.content === card2.content) {
+                    // Match found
+                    this.handleMatch(card1, card2);
+                } else {
+                    // No match
+                    this.handleNoMatch(card1, card2);
+                }
+                
+                this.flippedCards = [];
+            },
+            
+            // Handle matched cards
+            handleMatch(card1, card2) {
+                card1.isMatched = true;
+                card2.isMatched = true;
+                
+                const card1Element = document.getElementById(`card-${card1.id}`);
+                const card2Element = document.getElementById(`card-${card2.id}`);
+                
+                // Add matched class for animation
+                setTimeout(() => {
+                    card1Element.classList.add('matched');
+                    card2Element.classList.add('matched');
+                }, 200);
+                
+                this.matchedPairs++;
+                this.updatePairsCounter();
+                
+                // Check if game is complete
+                if (this.matchedPairs === this.currentPairs) {
+                    setTimeout(() => {
+                        this.gameComplete();
+                    }, 600);
+                }
+            },
+            
+            // Handle non-matching cards
+            handleNoMatch(card1, card2) {
+                const card1Element = document.getElementById(`card-${card1.id}`);
+                const card2Element = document.getElementById(`card-${card2.id}`);
+                
+                setTimeout(() => {
+                    card1.isFlipped = false;
+                    card2.isFlipped = false;
+                    card1Element.classList.remove('flipped');
+                    card2Element.classList.remove('flipped');
+                }, 800);
+            },
+            
+            // Update pairs counter display
+            updatePairsCounter() {
+                const pairsCounter = document.querySelector('.pairs-counter');
+                if (pairsCounter) {
+                    pairsCounter.textContent = `Pairs: ${this.matchedPairs}/${this.currentPairs}`;
+                }
+            },
+            
+            // Start the timer
+            startTimer() {
+                this.timer.startTime = Date.now();
+                this.timer.interval = setInterval(() => {
+                    this.updateTimer();
+                }, 100);
+            },
+            
+            // Update timer display
+            updateTimer() {
+                if (!this.timer.startTime) return;
+                
+                this.timer.currentTime = Date.now() - this.timer.startTime;
+                const seconds = Math.floor(this.timer.currentTime / 1000);
+                const minutes = Math.floor(seconds / 60);
+                const remainingSeconds = seconds % 60;
+                
+                const timerDisplay = document.getElementById('timerDisplay');
+                if (timerDisplay) {
+                    timerDisplay.textContent = `⏱️ ${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+                }
+            },
+            
+            // Game completion
+            gameComplete() {
+                this.gameState = 'completed';
+                clearInterval(this.timer.interval);
+                
+                const finalTime = this.timer.currentTime;
+                this.saveGameResult(this.currentPairs, finalTime);
+                
+                setTimeout(() => {
+                    this.showGameCompleteScreen(finalTime);
+                }, 300);
+            },
+            
+            // Save game result to leaderboard
+            saveGameResult(pairs, time) {
+                if (!this.leaderboard[pairs]) {
+                    this.leaderboard[pairs] = [];
+                }
+                
+                this.leaderboard[pairs].push({
+                    time: time,
+                    date: new Date().toISOString()
+                });
+                
+                // Sort by time (fastest first) and keep top 10
+                this.leaderboard[pairs].sort((a, b) => a.time - b.time);
+                this.leaderboard[pairs] = this.leaderboard[pairs].slice(0, 10);
+                
+                this.saveLeaderboard();
+            },
+            
+            // Show game complete screen
+            showGameCompleteScreen(finalTime) {
+                const gameArea = document.getElementById('gameArea');
+                const minutes = Math.floor(finalTime / 60000);
+                const seconds = Math.floor((finalTime % 60000) / 1000);
+                const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                gameArea.innerHTML = `
+                    <div class="setup-screen">
+                        <h2 class="setup-title">🎉 Congratulations!</h2>
+                        <p class="setup-instructions">
+                            You completed ${this.currentPairs} pairs in <strong>${timeString}</strong>!<br>
+                            Your time has been saved to the leaderboard.
+                        </p>
+                        <div class="setup-form">
+                            <button class="start-button" id="playAgainButton">
+                                🔄 Play Again
+                            </button>
+                            <button class="leaderboard-button" id="viewLeaderboardButton">
+                                🏆 View Leaderboard
+                            </button>
+                            <button class="control-button" id="backToSetupButton" style="margin-top: 10px;">
+                                ⬅️ Back to Setup
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                // Attach completion screen event listeners
+                document.getElementById('playAgainButton').addEventListener('click', () => {
+                    this.startGame(this.currentPairs);
+                });
+                
+                document.getElementById('viewLeaderboardButton').addEventListener('click', () => {
+                    this.showLeaderboard();
+                });
+                
+                document.getElementById('backToSetupButton').addEventListener('click', () => {
+                    this.showSetupScreen();
+                });
+            },
+            
+            // Show leaderboard
+            showLeaderboard() {
+                const gameArea = document.getElementById('gameArea');
+                const leaderboardHTML = this.generateLeaderboardHTML();
+                
+                gameArea.innerHTML = `
+                    <div class="leaderboard-screen">
+                        <h2 class="leaderboard-title">🏆 Leaderboard</h2>
+                        <div class="leaderboard-content">
+                            ${leaderboardHTML}
+                        </div>
+                        <div class="leaderboard-controls">
+                            <button class="start-button" id="newGameFromLeaderboard">
+                                🎮 New Game
+                            </button>
+                            <button class="leaderboard-button" id="clearLeaderboard">
+                                🗑️ Clear All Scores
+                            </button>
+                            <button class="control-button" id="backFromLeaderboard">
+                                ⬅️ Back
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                this.attachLeaderboardEventListeners();
+            },
+            
+            // Generate leaderboard HTML
+            generateLeaderboardHTML() {
+                const pairCounts = Object.keys(this.leaderboard).map(Number).sort((a, b) => a - b);
+                
+                if (pairCounts.length === 0) {
+                    return '<div class="no-scores">No games played yet. Start playing to see your scores!</div>';
+                }
+                
+                return pairCounts.map(pairs => {
+                    const scores = this.leaderboard[pairs];
+                    return `
+                        <div class="pairs-group">
+                            <div class="pairs-group-title">${pairs} Pairs</div>
+                            <table class="leaderboard-table">
+                                <thead>
+                                    <tr>
+                                        <th>Rank</th>
+                                        <th>Time</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${scores.map((score, index) => {
+                                        const medal = this.getRankMedal(index);
+                                        const timeString = this.formatTime(score.time);
+                                        const dateString = this.formatDate(score.date);
+                                        return `
+                                            <tr>
+                                                <td><span class="rank-medal">${medal}</span>${index + 1}</td>
+                                                <td><strong>${timeString}</strong></td>
+                                                <td>${dateString}</td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                }).join('');
+            },
+            
+            // Get rank medal emoji
+            getRankMedal(index) {
+                const medals = ['🥇', '🥈', '🥉'];
+                return medals[index] || '🏅';
+            },
+            
+            // Format time for display
+            formatTime(milliseconds) {
+                const minutes = Math.floor(milliseconds / 60000);
+                const seconds = Math.floor((milliseconds % 60000) / 1000);
+                return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            },
+            
+            // Format date for display
+            formatDate(dateString) {
+                const date = new Date(dateString);
+                return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            },
+            
+            // Attach leaderboard event listeners
+            attachLeaderboardEventListeners() {
+                const newGameButton = document.getElementById('newGameFromLeaderboard');
+                const clearButton = document.getElementById('clearLeaderboard');
+                const backButton = document.getElementById('backFromLeaderboard');
+                
+                newGameButton.addEventListener('click', () => {
+                    this.showSetupScreen();
+                });
+                
+                clearButton.addEventListener('click', () => {
+                    if (confirm('Are you sure you want to clear all leaderboard scores? This cannot be undone.')) {
+                        this.clearLeaderboard();
+                        this.showLeaderboard(); // Refresh the display
+                    }
+                });
+                
+                backButton.addEventListener('click', () => {
+                    if (this.gameState === 'completed') {
+                        this.showGameCompleteScreen(this.timer.currentTime);
+                    } else {
+                        this.showSetupScreen();
+                    }
+                });
+            },
+            
+            // Clear leaderboard
+            clearLeaderboard() {
+                this.leaderboard = {};
+                this.saveLeaderboard();
+            },
+            
+            // Reset timer
+            resetTimer() {
+                if (this.timer.interval) {
+                    clearInterval(this.timer.interval);
+                }
+                this.timer.startTime = null;
+                this.timer.currentTime = 0;
+                this.timer.interval = null;
+            },
+            
+            // Load leaderboard from localStorage
+            loadLeaderboard() {
+                const saved = localStorage.getItem('memoryGameLeaderboard');
+                this.leaderboard = saved ? JSON.parse(saved) : {};
+            },
+            
+            // Save leaderboard to localStorage
+            saveLeaderboard() {
+                localStorage.setItem('memoryGameLeaderboard', JSON.stringify(this.leaderboard));
+            }
+        };
+        
+        // Initialize game when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            MemoryGame.init();
+        });
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            MemoryGame.calculateMaxPairs();
+        });
+        
+        // Keyboard accessibility
+        document.addEventListener('keydown', (e) => {
+            if (MemoryGame.gameState === 'playing') {
+                // Handle arrow key navigation and Enter/Space for card selection
+                const cards = document.querySelectorAll('.card:not(.matched)');
+                const focusedCard = document.activeElement;
+                
+                if (focusedCard && focusedCard.classList.contains('card')) {
+                    const currentIndex = Array.from(cards).indexOf(focusedCard);
+                    let newIndex = currentIndex;
+                    
+                    switch(e.key) {
+                        case 'ArrowRight':
+                            newIndex = (currentIndex + 1) % cards.length;
+                            break;
+                        case 'ArrowLeft':
+                            newIndex = currentIndex > 0 ? currentIndex - 1 : cards.length - 1;
+                            break;
+                        case 'ArrowDown':
+                            // Move to next row (approximate)
+                            const gridCols = Math.sqrt(cards.length) || 4;
+                            newIndex = (currentIndex + gridCols) % cards.length;
+                            break;
+                        case 'ArrowUp':
+                            // Move to previous row (approximate)
+                            const gridColsUp = Math.sqrt(cards.length) || 4;
+                            newIndex = currentIndex >= gridColsUp ? currentIndex - gridColsUp : cards.length - (gridColsUp - currentIndex);
+                            break;
+                        case 'Enter':
+                        case ' ':
+                            e.preventDefault();
+                            const cardId = parseInt(focusedCard.dataset.cardId);
+                            MemoryGame.flipCard(cardId);
+                            return;
+                    }
+                    
+                    if (newIndex !== currentIndex) {
+                        e.preventDefault();
+                        cards[newIndex].focus();
+                    }
+                } else if (e.key === 'Tab' && cards.length > 0) {
+                    // Focus first card when tabbing into game
+                    cards[0].focus();
+                }
+            }
+        });
+    </script>
+</body>
+</html> 
