@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Manhattan - Bitcoin Visualization</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a0a;
+            font-family: 'Courier New', monospace;
+            color: #FFD700;
+            overflow: hidden;
+        }
+
+        #canvas-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #three-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #controls-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(10, 10, 10, 0.8);
+            border: 1px solid #FFD700;
+            border-radius: 8px;
+            padding: 15px;
+            min-width: 250px;
+            backdrop-filter: blur(5px);
+        }
+
+        #info-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(10, 10, 10, 0.8);
+            border: 1px solid #FFD700;
+            border-radius: 8px;
+            padding: 15px;
+            backdrop-filter: blur(5px);
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #FFD700;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #FFD700;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+
+        button {
+            background: rgba(255, 215, 0, 0.1);
+            border: 1px solid #FFD700;
+            color: #FFD700;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-right: 10px;
+            margin-bottom: 5px;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background: rgba(255, 215, 0, 0.2);
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+        }
+
+        .value-display {
+            font-size: 10px;
+            color: #FFA500;
+            margin-top: 2px;
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 14px;
+            text-align: center;
+        }
+
+        #easter-egg-popup {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #FFD700;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            display: none;
+            z-index: 1000;
+        }
+
+        #easter-egg-popup h3 {
+            margin-bottom: 10px;
+            color: #FFD700;
+        }
+
+        #easter-egg-popup .number {
+            font-size: 24px;
+            color: #FFA500;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container">
+        <canvas id="three-canvas"></canvas>
+        
+        <div id="loading">
+            <div>INITIALIZING DIGITAL MANHATTAN...</div>
+            <div style="margin-top: 10px;">LOADING BITCOIN BLOCKS...</div>
+        </div>
+
+        <div id="controls-panel">
+            <div class="control-group">
+                <label for="block-count">Block Count</label>
+                <input type="range" id="block-count" min="10" max="1000" value="125" step="1">
+                <div class="value-display" id="block-count-value">125 blocks (5×5×5)</div>
+            </div>
+            
+            <div class="control-group">
+                <label for="block-size">Block Size</label>
+                <input type="range" id="block-size" min="50" max="200" value="100" step="5">
+                <div class="value-display" id="block-size-value">100%</div>
+            </div>
+            
+            <div class="control-group">
+                <label for="block-spacing">Block Spacing</label>
+                <input type="range" id="block-spacing" min="0" max="50" value="10" step="1">
+                <div class="value-display" id="block-spacing-value">10%</div>
+            </div>
+            
+            <div class="control-group">
+                <button id="far-view-btn">Far View</button>
+                <button id="fullscreen-btn">Fullscreen</button>
+            </div>
+        </div>
+
+        <div id="info-panel">
+            <div>Digital Manhattan</div>
+            <div style="font-size: 10px; margin-top: 5px;">Bitcoin Visualization</div>
+            <div style="font-size: 10px; margin-top: 10px;">
+                <div>Camera: <span id="camera-info">Loading...</span></div>
+                <div>FPS: <span id="fps-counter">--</span></div>
+            </div>
+        </div>
+
+        <div id="easter-egg-popup">
+            <h3>Bitcoin Block #</h3>
+            <div class="number" id="random-number">1,000,000</div>
+            <div style="margin-top: 10px; font-size: 10px;">Click anywhere to close</div>
+        </div>
+    </div>
+
+    <!-- Three.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    
+    <script>
+        // Digital Manhattan Bitcoin Visualization
+        // WebGL Support Detection
+        function checkWebGLSupport() {
+            try {
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                return !!gl;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        // Wait for DOM to be fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, checking WebGL and Three.js...');
+            
+            if (!checkWebGLSupport()) {
+                document.getElementById('loading').innerHTML = 
+                    '<div style="color: #ff4444;">WebGL not supported!</div>' +
+                    '<div style="font-size: 12px; margin-top: 10px;">Please use a modern browser with WebGL support.</div>';
+            } else {
+                // Wait for Three.js to load before initializing
+                if (typeof THREE !== 'undefined') {
+                    console.log('Three.js already loaded, initializing...');
+                    initDigitalManhattan();
+                } else {
+                    console.log('Waiting for Three.js to load...');
+                    // Wait for Three.js to load
+                    let checkThree = setInterval(() => {
+                        if (typeof THREE !== 'undefined') {
+                            console.log('Three.js loaded, initializing...');
+                            clearInterval(checkThree);
+                            initDigitalManhattan();
+                        }
+                    }, 100);
+                    
+                    // Timeout after 10 seconds
+                    setTimeout(() => {
+                        clearInterval(checkThree);
+                        document.getElementById('loading').innerHTML = 
+                            '<div style="color: #ff4444;">Failed to load Three.js!</div>' +
+                            '<div style="font-size: 12px; margin-top: 10px;">Please check your internet connection and refresh.</div>';
+                    }, 10000);
+                }
+            }
+        });
+
+        // Global variables
+        let scene, camera, renderer, controls;
+        let bitcoinBlocks = [];
+        let blockGroup;
+        let animationId;
+        let isFullscreen = false;
+        let isFarView = false;
+        let stars = [];
+        
+        // Animation system
+        let animationClock;
+        let sparkleParticles = [];
+        let sparkleGeometry, sparkleMaterial;
+        
+        // Performance monitoring
+        let lastTime = 0;
+        let frameCount = 0;
+        let fps = 0;
+
+        function initDigitalManhattan() {
+            try {
+                console.log('Digital Manhattan initializing...');
+                console.log('Three.js version:', THREE.REVISION);
+                
+                // Initialize Three.js scene
+                initScene();
+                initCamera();
+                initRenderer();
+                initLighting();
+                initControls();
+                
+                // Initialize animation system
+                initAnimationSystem();
+                
+                // Generate initial Bitcoin blocks
+                generateBitcoinBlocks(125); // Default 5x5x5 cube
+                
+                // Initialize UI controls
+                initUIControls();
+                
+                // Start render loop
+                animate();
+                
+                console.log('Digital Manhattan initialized successfully!');
+                
+                // Hide loading screen
+                setTimeout(() => {
+                    document.getElementById('loading').style.display = 'none';
+                }, 500);
+                
+            } catch (error) {
+                console.error('Error initializing Digital Manhattan:', error);
+                document.getElementById('loading').innerHTML = 
+                    '<div style="color: #ff4444;">Initialization Error!</div>' +
+                    '<div style="font-size: 12px; margin-top: 10px;">' + error.message + '</div>' +
+                    '<div style="font-size: 10px; margin-top: 10px;">Check browser console for details.</div>';
+            }
+        }
+
+        function initScene() {
+            // Create scene with dark background
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a0a);
+            
+            // Create group for all bitcoin blocks
+            blockGroup = new THREE.Group();
+            scene.add(blockGroup);
+            
+            console.log('Scene initialized:', scene);
+        }
+
+        function initCamera() {
+            // Set up perspective camera
+            const aspect = window.innerWidth / window.innerHeight;
+            camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
+            camera.position.set(15, 15, 15);
+            camera.lookAt(0, 0, 0);
+        }
+
+        function initRenderer() {
+            // Get canvas element and initialize renderer
+            const canvas = document.getElementById('three-canvas');
+            console.log('Canvas element:', canvas);
+            
+            renderer = new THREE.WebGLRenderer({ 
+                canvas: canvas,
+                antialias: true,
+                alpha: false
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            
+            console.log('Renderer initialized:', renderer);
+        }
+
+        function initLighting() {
+            // Moderate ambient light for better block definition
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+            scene.add(ambientLight);
+
+            // Main directional light for good contrast
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+            directionalLight.position.set(10, 10, 5);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            scene.add(directionalLight);
+
+            // Golden accent light for metallic shine
+            const goldenLight = new THREE.DirectionalLight(0xFFD700, 0.8);
+            goldenLight.position.set(-5, 5, 10);
+            scene.add(goldenLight);
+
+            // Point lights for metallic reflections
+            const pointLight1 = new THREE.PointLight(0xFFD700, 0.6, 100);
+            pointLight1.position.set(0, 20, 0);
+            scene.add(pointLight1);
+
+            const pointLight2 = new THREE.PointLight(0xFFA500, 0.5, 80);
+            pointLight2.position.set(15, 0, 15);
+            scene.add(pointLight2);
+
+            const pointLight3 = new THREE.PointLight(0xFFD700, 0.5, 80);
+            pointLight3.position.set(-15, 0, -15);
+            scene.add(pointLight3);
+        }
+
+        function initControls() {
+            // Enhanced mouse and touch controls
+            let isMouseDown = false;
+            let isTouchActive = false;
+            let mouseX = 0;
+            let mouseY = 0;
+            let targetRotationX = 0;
+            let targetRotationY = 0;
+            let rotationX = 0;
+            let rotationY = 0;
+            let initialDistance = 0;
+            let currentZoom = camera.position.length();
+            let lastInteractionTime = Date.now();
+            let autoRotationSpeed = 0.0005;
+
+            const canvas = document.getElementById('three-canvas');
+
+            // Mouse controls
+            canvas.addEventListener('mousedown', (event) => {
+                isMouseDown = true;
+                mouseX = event.clientX;
+                mouseY = event.clientY;
+                canvas.style.cursor = 'grabbing';
+                lastInteractionTime = Date.now();
+            });
+
+            canvas.addEventListener('mousemove', (event) => {
+                if (!isMouseDown) return;
+
+                const deltaX = event.clientX - mouseX;
+                const deltaY = event.clientY - mouseY;
+
+                targetRotationY += deltaX * 0.01;
+                targetRotationX += deltaY * 0.01;
+
+                // Clamp vertical rotation to prevent flipping
+                targetRotationX = Math.max(-Math.PI/2, Math.min(Math.PI/2, targetRotationX));
+
+                mouseX = event.clientX;
+                mouseY = event.clientY;
+                lastInteractionTime = Date.now();
+            });
+
+            canvas.addEventListener('mouseup', () => {
+                isMouseDown = false;
+                canvas.style.cursor = 'grab';
+            });
+
+            canvas.addEventListener('mouseleave', () => {
+                isMouseDown = false;
+                canvas.style.cursor = 'grab';
+            });
+
+            // Set initial cursor
+            canvas.style.cursor = 'grab';
+
+            // Enhanced mouse wheel zoom with limits
+            canvas.addEventListener('wheel', (event) => {
+                event.preventDefault();
+                const zoomSpeed = 0.08;
+                const minDistance = 3;
+                const maxDistance = 100;
+                
+                if (event.deltaY > 0) {
+                    // Zoom out
+                    currentZoom = Math.min(maxDistance, currentZoom * (1 + zoomSpeed));
+                } else {
+                    // Zoom in
+                    currentZoom = Math.max(minDistance, currentZoom * (1 - zoomSpeed));
+                }
+                lastInteractionTime = Date.now();
+            });
+
+            // Touch controls for mobile/tablet
+            let touches = [];
+
+            canvas.addEventListener('touchstart', (event) => {
+                event.preventDefault();
+                touches = Array.from(event.touches);
+                isTouchActive = true;
+
+                if (touches.length === 1) {
+                    // Single touch - rotation
+                    mouseX = touches[0].clientX;
+                    mouseY = touches[0].clientY;
+                } else if (touches.length === 2) {
+                    // Two finger pinch - zoom
+                    const dx = touches[0].clientX - touches[1].clientX;
+                    const dy = touches[0].clientY - touches[1].clientY;
+                    initialDistance = Math.sqrt(dx * dx + dy * dy);
+                }
+            });
+
+            canvas.addEventListener('touchmove', (event) => {
+                event.preventDefault();
+                if (!isTouchActive) return;
+
+                touches = Array.from(event.touches);
+
+                if (touches.length === 1) {
+                    // Single touch rotation
+                    const deltaX = touches[0].clientX - mouseX;
+                    const deltaY = touches[0].clientY - mouseY;
+
+                    targetRotationY += deltaX * 0.01;
+                    targetRotationX += deltaY * 0.01;
+
+                    targetRotationX = Math.max(-Math.PI/2, Math.min(Math.PI/2, targetRotationX));
+
+                    mouseX = touches[0].clientX;
+                    mouseY = touches[0].clientY;
+                } else if (touches.length === 2) {
+                    // Pinch to zoom
+                    const dx = touches[0].clientX - touches[1].clientX;
+                    const dy = touches[0].clientY - touches[1].clientY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (initialDistance > 0) {
+                        const scale = distance / initialDistance;
+                        const minDistance = 3;
+                        const maxDistance = 100;
+                        
+                        if (scale > 1.02) {
+                            // Pinch out - zoom in
+                            currentZoom = Math.max(minDistance, currentZoom * 0.95);
+                            initialDistance = distance;
+                        } else if (scale < 0.98) {
+                            // Pinch in - zoom out
+                            currentZoom = Math.min(maxDistance, currentZoom * 1.05);
+                            initialDistance = distance;
+                        }
+                    }
+                }
+            });
+
+            canvas.addEventListener('touchend', (event) => {
+                event.preventDefault();
+                touches = Array.from(event.touches);
+                
+                if (touches.length === 0) {
+                    isTouchActive = false;
+                } else if (touches.length === 1) {
+                    // Reset single touch position
+                    mouseX = touches[0].clientX;
+                    mouseY = touches[0].clientY;
+                    initialDistance = 0;
+                }
+            });
+
+            // Apply smooth rotation and zoom in animation loop
+            function updateControls() {
+                // Auto-rotation when no user interaction for 3 seconds
+                const timeSinceInteraction = Date.now() - lastInteractionTime;
+                if (timeSinceInteraction > 3000) {
+                    targetRotationY += autoRotationSpeed;
+                }
+
+                // Smooth rotation interpolation
+                rotationX += (targetRotationX - rotationX) * 0.05;
+                rotationY += (targetRotationY - rotationY) * 0.05;
+
+                // Smooth zoom interpolation
+                const currentDistance = camera.position.length();
+                const zoomDiff = currentZoom - currentDistance;
+                if (Math.abs(zoomDiff) > 0.01) {
+                    const newDistance = currentDistance + zoomDiff * 0.1;
+                    camera.position.setLength(newDistance);
+                }
+
+                // Update camera position based on rotation
+                camera.position.x = Math.cos(rotationY) * Math.cos(rotationX) * camera.position.length();
+                camera.position.y = Math.sin(rotationX) * camera.position.length();
+                camera.position.z = Math.sin(rotationY) * Math.cos(rotationX) * camera.position.length();
+                camera.lookAt(0, 0, 0);
+            }
+
+            // Store update function for animation loop
+            window.updateControls = updateControls;
+        }
+
+        function handleResize() {
+            // Update camera aspect ratio and renderer size
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function updateFPS() {
+            frameCount++;
+            const currentTime = performance.now();
+            
+            if (currentTime - lastTime >= 1000) {
+                fps = Math.round((frameCount * 1000) / (currentTime - lastTime));
+                document.getElementById('fps-counter').textContent = fps;
+                frameCount = 0;
+                lastTime = currentTime;
+            }
+        }
+
+        function updateCameraInfo() {
+            const distance = Math.round(camera.position.length() * 10) / 10;
+            document.getElementById('camera-info').textContent = `Distance: ${distance}`;
+        }
+
+
+
+        // Bitcoin Block Generation System
+        let currentBlockCount = 125;
+        let currentBlockSize = 1.0;
+        let currentBlockSpacing = 0.1;
+        let blockGeometry, blockMaterial;
+
+        function createBitcoinBlockMaterial() {
+            // Create refined golden metallic material with better individual block visibility
+            blockMaterial = new THREE.MeshStandardMaterial({
+                color: 0xFFD700,
+                metalness: 1.0,
+                roughness: 0.05,
+                emissive: 0x332200,
+                emissiveIntensity: 0.3
+            });
+            return blockMaterial;
+        }
+
+        function calculateCubeDimensions(totalBlocks) {
+            // Calculate cube root to get perfect cube dimensions
+            const cubeRoot = Math.round(Math.pow(totalBlocks, 1/3));
+            const actualBlocks = cubeRoot * cubeRoot * cubeRoot;
+            return { dimension: cubeRoot, actualCount: actualBlocks };
+        }
+
+        function generateBitcoinBlocks(blockCount) {
+            console.log(`Generating ${blockCount} Bitcoin blocks...`);
+            
+            // Clear existing blocks
+            clearBitcoinBlocks();
+            
+            // Calculate cube dimensions
+            const { dimension, actualCount } = calculateCubeDimensions(blockCount);
+            currentBlockCount = actualCount;
+            
+            // Create geometry and material if not exists
+            if (!blockGeometry) {
+                blockGeometry = new THREE.BoxGeometry(1, 1, 1);
+            }
+            if (!blockMaterial) {
+                createBitcoinBlockMaterial();
+            }
+            
+            // Create instanced mesh for performance
+            const instancedMesh = new THREE.InstancedMesh(
+                blockGeometry,
+                blockMaterial,
+                actualCount
+            );
+            instancedMesh.castShadow = true;
+            instancedMesh.receiveShadow = true;
+            
+            // Position blocks in perfect cube formation
+            const gap = currentBlockSpacing; // Controllable gap between blocks
+            const blockSize = currentBlockSize;
+            const totalSize = (dimension - 1) * (blockSize + gap);
+            const startPos = -totalSize / 2;
+            
+            let index = 0;
+            const matrix = new THREE.Matrix4();
+            
+            for (let x = 0; x < dimension; x++) {
+                for (let y = 0; y < dimension; y++) {
+                    for (let z = 0; z < dimension; z++) {
+                        const posX = startPos + x * (blockSize + gap);
+                        const posY = startPos + y * (blockSize + gap);
+                        const posZ = startPos + z * (blockSize + gap);
+                        
+                        // Set position and scale
+                        matrix.makeScale(blockSize, blockSize, blockSize);
+                        matrix.setPosition(posX, posY, posZ);
+                        instancedMesh.setMatrixAt(index, matrix);
+                        
+                        index++;
+                    }
+                }
+            }
+            
+            instancedMesh.instanceMatrix.needsUpdate = true;
+            blockGroup.add(instancedMesh);
+            bitcoinBlocks.push(instancedMesh);
+            
+            // Update UI display
+            updateBlockCountDisplay(actualCount, dimension);
+            
+            console.log(`Generated ${actualCount} blocks in ${dimension}×${dimension}×${dimension} formation`);
+        }
+
+        function clearBitcoinBlocks() {
+            // Remove all existing blocks from the scene
+            bitcoinBlocks.forEach(block => {
+                blockGroup.remove(block);
+                if (block.geometry) block.geometry.dispose();
+                if (block.material) block.material.dispose();
+            });
+            bitcoinBlocks = [];
+        }
+
+        function updateBlockSize(newSize) {
+            currentBlockSize = newSize;
+            generateBitcoinBlocks(currentBlockCount);
+            updateBlockSizeDisplay(newSize);
+        }
+
+        function updateBlockSpacing(newSpacing) {
+            currentBlockSpacing = newSpacing;
+            generateBitcoinBlocks(currentBlockCount);
+            updateBlockSpacingDisplay(newSpacing);
+        }
+
+        function updateBlockCountDisplay(count, dimension) {
+            document.getElementById('block-count-value').textContent = 
+                `${count} blocks (${dimension}×${dimension}×${dimension})`;
+        }
+
+        function updateBlockSizeDisplay(size) {
+            document.getElementById('block-size-value').textContent = `${Math.round(size * 100)}%`;
+        }
+
+        function updateBlockSpacingDisplay(spacing) {
+            document.getElementById('block-spacing-value').textContent = `${Math.round(spacing * 100)}%`;
+        }
+
+        // UI Controls System
+        function initUIControls() {
+            const blockCountSlider = document.getElementById('block-count');
+            const blockSizeSlider = document.getElementById('block-size');
+            const blockSpacingSlider = document.getElementById('block-spacing');
+            const farViewBtn = document.getElementById('far-view-btn');
+            const fullscreenBtn = document.getElementById('fullscreen-btn');
+
+            // Block count slider
+            blockCountSlider.addEventListener('input', (event) => {
+                const newCount = parseInt(event.target.value);
+                generateBitcoinBlocks(newCount);
+            });
+
+            // Block size slider
+            blockSizeSlider.addEventListener('input', (event) => {
+                const newSize = parseInt(event.target.value) / 100;
+                updateBlockSize(newSize);
+            });
+
+            // Block spacing slider
+            blockSpacingSlider.addEventListener('input', (event) => {
+                const newSpacing = parseInt(event.target.value) / 100;
+                updateBlockSpacing(newSpacing);
+            });
+
+            // Far view button
+            farViewBtn.addEventListener('click', toggleFarView);
+
+            // Fullscreen button
+            fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+            // Easter egg - click detection on blocks
+            initEasterEggSystem();
+        }
+
+        // Animation System
+        function initAnimationSystem() {
+            // Initialize animation clock
+            animationClock = new THREE.Clock();
+            
+            // Create sparkle particle system
+            initSparkleSystem();
+            
+            console.log('Animation system initialized');
+        }
+
+        function initSparkleSystem() {
+            // Create starfield that persists across all views
+            createStarField();
+            console.log('Sparkle system initialized (stars only)');
+        }
+
+        function updateAnimations() {
+            const elapsedTime = animationClock.getElapsedTime();
+            
+            // Update block group rotation (much slower unified rotation)
+            if (blockGroup) {
+                // Rotate entire cube structure very slowly (1 full rotation per 3 minutes)
+                blockGroup.rotation.y = elapsedTime * 0.0035; // ~180 seconds per rotation
+                blockGroup.rotation.x = Math.sin(elapsedTime * 0.001) * 0.02; // Very subtle X wobble
+                
+                // Keep blocks in fixed positions (no floating animation)
+                
+                // Update glittering effect on blocks
+                updateGlitterEffect(elapsedTime);
+            }
+        }
+
+        function updateFloatingAnimation(elapsedTime) {
+            // Apply subtle floating motion to individual blocks
+            bitcoinBlocks.forEach((instancedMesh, blockIndex) => {
+                if (!instancedMesh.userData.originalPositions) {
+                    // Store original positions on first run
+                    instancedMesh.userData.originalPositions = [];
+                    const matrix = new THREE.Matrix4();
+                    
+                    for (let i = 0; i < instancedMesh.count; i++) {
+                        instancedMesh.getMatrixAt(i, matrix);
+                        const position = new THREE.Vector3();
+                        position.setFromMatrixPosition(matrix);
+                        instancedMesh.userData.originalPositions.push(position.clone());
+                    }
+                }
+                
+                // Apply floating motion to each block
+                const matrix = new THREE.Matrix4();
+                for (let i = 0; i < instancedMesh.count; i++) {
+                    const originalPos = instancedMesh.userData.originalPositions[i];
+                    
+                    // Create very subtle floating pattern for each block
+                    const floatOffset = Math.sin(elapsedTime * 1 + i * 0.05) * 0.01;
+                    const bobOffset = Math.cos(elapsedTime * 0.8 + i * 0.08) * 0.008;
+                    
+                    // Update matrix with subtle floating position
+                    matrix.makeScale(currentBlockSize, currentBlockSize, currentBlockSize);
+                    matrix.setPosition(
+                        originalPos.x + floatOffset,
+                        originalPos.y + bobOffset,
+                        originalPos.z + Math.sin(elapsedTime * 0.9 + i * 0.1) * 0.005
+                    );
+                    
+                    instancedMesh.setMatrixAt(i, matrix);
+                }
+                
+                instancedMesh.instanceMatrix.needsUpdate = true;
+            });
+        }
+
+        function updateGlitterEffect(elapsedTime) {
+            // Update refined metallic glittering effect with gold shade variations
+            if (blockMaterial) {
+                // Slower, more refined sparkly effect
+                const baseIntensity = 0.3;
+                const sparkle1 = Math.sin(elapsedTime * 1.5) * 0.2;
+                const sparkle2 = Math.cos(elapsedTime * 2.3) * 0.15;
+                const sparkle3 = Math.sin(elapsedTime * 3.1) * 0.1;
+                const glitterIntensity = baseIntensity + sparkle1 + sparkle2 + sparkle3;
+                blockMaterial.emissiveIntensity = Math.max(0.1, glitterIntensity);
+                
+                // Cycle through different gold shades
+                const goldVariation = Math.sin(elapsedTime * 0.8) * 0.1 + 0.9;
+                const redChannel = 1.0;
+                const greenChannel = 0.84 * goldVariation;
+                const blueChannel = 0.0;
+                blockMaterial.color.setRGB(redChannel, greenChannel, blueChannel);
+                
+                // Enhanced metallic shine with roughness variation
+                const roughnessBase = 0.05;
+                const roughnessVariation = Math.sin(elapsedTime * 2) * 0.03;
+                blockMaterial.roughness = Math.max(0.02, roughnessBase + roughnessVariation);
+                
+                // Metallic intensity variation for more shine
+                const metallicVariation = Math.cos(elapsedTime * 1.8) * 0.05;
+                blockMaterial.metalness = Math.min(1.0, 0.95 + metallicVariation);
+            }
+        }
+
+
+
+        function animate() {
+            animationId = requestAnimationFrame(animate);
+            
+            // Update animations
+            updateAnimations();
+            
+            // Update controls
+            if (window.updateControls) {
+                window.updateControls();
+            }
+            
+            // Update UI info
+            updateFPS();
+            updateCameraInfo();
+            
+            // Render scene
+            renderer.render(scene, camera);
+        }
+
+        // Advanced Features System
+        let starField;
+        let raycaster, mouse;
+        let originalCameraPosition;
+
+        function createStarField() {
+            // Create starfield for far view
+            const starGeometry = new THREE.BufferGeometry();
+            const starCount = 1000;
+            const positions = new Float32Array(starCount * 3);
+            
+            for (let i = 0; i < starCount * 3; i += 3) {
+                // Create stars in a large sphere around the scene
+                const radius = 200 + Math.random() * 300;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.random() * Math.PI;
+                
+                positions[i] = radius * Math.sin(phi) * Math.cos(theta);
+                positions[i + 1] = radius * Math.sin(phi) * Math.sin(theta);
+                positions[i + 2] = radius * Math.cos(phi);
+            }
+            
+            starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            
+            const starMaterial = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 2,
+                sizeAttenuation: false
+            });
+            
+            starField = new THREE.Points(starGeometry, starMaterial);
+            starField.visible = true; // Always visible
+            scene.add(starField);
+        }
+
+        function toggleFarView() {
+            const farViewBtn = document.getElementById('far-view-btn');
+            
+            if (!isFarView) {
+                // Switch to far view
+                isFarView = true;
+                farViewBtn.textContent = 'Normal View';
+                
+                // Create starfield if it doesn't exist
+                if (!starField) {
+                    createStarField();
+                }
+                
+                // Zoom out smoothly (stars are always visible)
+                animateCameraToPosition(80, 80, 80, 3000);
+                
+            } else {
+                // Switch back to normal view
+                isFarView = false;
+                farViewBtn.textContent = 'Far View';
+                
+                // Zoom back in (stars remain visible)
+                animateCameraToPosition(15, 15, 15, 3000);
+            }
+        }
+
+        function animateCameraToPosition(x, y, z, duration) {
+            // Smooth camera transition
+            const startPosition = camera.position.clone();
+            const endPosition = new THREE.Vector3(x, y, z);
+            const startTime = performance.now();
+            
+            function animateCamera() {
+                const elapsed = performance.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // Smooth easing function
+                const easeProgress = 1 - Math.pow(1 - progress, 3);
+                
+                camera.position.lerpVectors(startPosition, endPosition, easeProgress);
+                camera.lookAt(0, 0, 0);
+                
+                if (progress < 1) {
+                    requestAnimationFrame(animateCamera);
+                }
+            }
+            
+            animateCamera();
+        }
+
+        function toggleFullscreen() {
+            const fullscreenBtn = document.getElementById('fullscreen-btn');
+            
+            if (!isFullscreen) {
+                // Enter fullscreen
+                const element = document.documentElement;
+                
+                if (element.requestFullscreen) {
+                    element.requestFullscreen();
+                } else if (element.webkitRequestFullscreen) {
+                    element.webkitRequestFullscreen();
+                } else if (element.mozRequestFullScreen) {
+                    element.mozRequestFullScreen();
+                } else if (element.msRequestFullscreen) {
+                    element.msRequestFullscreen();
+                }
+                
+            } else {
+                // Exit fullscreen
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+            }
+        }
+
+        // Listen for fullscreen changes
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+        document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+        function handleFullscreenChange() {
+            isFullscreen = !!(document.fullscreenElement || 
+                            document.webkitFullscreenElement || 
+                            document.mozFullScreenElement || 
+                            document.msFullscreenElement);
+            
+            const fullscreenBtn = document.getElementById('fullscreen-btn');
+            fullscreenBtn.textContent = isFullscreen ? 'Exit Fullscreen' : 'Fullscreen';
+            
+            // Resize renderer when entering/exiting fullscreen
+            handleResize();
+        }
+
+        function initEasterEggSystem() {
+            // Initialize raycaster for click detection
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+            
+            const canvas = document.getElementById('three-canvas');
+            canvas.addEventListener('click', onBlockClick);
+        }
+
+        function onBlockClick(event) {
+            // Calculate mouse position in normalized device coordinates
+            const rect = event.target.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            
+            // Cast ray from camera through mouse position
+            raycaster.setFromCamera(mouse, camera);
+            
+            // Check for intersections with bitcoin blocks
+            const intersects = raycaster.intersectObjects(bitcoinBlocks);
+            
+            if (intersects.length > 0) {
+                // Generate random Bitcoin number (1 to 21,000,000)
+                const randomNumber = Math.floor(Math.random() * 21000000) + 1;
+                showEasterEgg(randomNumber);
+            }
+        }
+
+        function showEasterEgg(number) {
+            const popup = document.getElementById('easter-egg-popup');
+            const numberDisplay = document.getElementById('random-number');
+            
+            // Format number with commas
+            numberDisplay.textContent = number.toLocaleString();
+            
+            // Show popup
+            popup.style.display = 'block';
+            
+            // Auto-hide after 3 seconds or on click
+            const hideTimeout = setTimeout(() => {
+                popup.style.display = 'none';
+            }, 3000);
+            
+            // Click to close immediately
+            const closeHandler = () => {
+                popup.style.display = 'none';
+                clearTimeout(hideTimeout);
+                popup.removeEventListener('click', closeHandler);
+                document.removeEventListener('click', closeHandler);
+            };
+            
+            // Add click handlers
+            popup.addEventListener('click', closeHandler);
+            setTimeout(() => {
+                document.addEventListener('click', closeHandler);
+            }, 100); // Small delay to prevent immediate closing
+        }
+
+        // Window resize handler
+        window.addEventListener('resize', handleResize);
+    </script>
+</body>
+</html> 
