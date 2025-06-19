@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chrome Extensions - Your Portfolio</title>
+    <!-- Tailwind CSS CDN for easy styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles for the Inter font and overall body styling */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Light gray background */
+            color: #374151; /* Darker gray text */
+        }
+        /* Style for the main container */
+        .container {
+            max-width: 1024px; /* Max width for content */
+            margin: 0 auto; /* Center the container */
+            padding: 1.5rem; /* Padding on all sides */
+        }
+        /* Card styling for each extension */
+        .extension-card {
+            background-color: #ffffff; /* White background for cards */
+            border-radius: 0.75rem; /* Rounded corners */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* Subtle shadow */
+            padding: 2rem; /* Inside padding */
+            margin-bottom: 2rem; /* Space between cards */
+            transition: transform 0.2s ease-in-out; /* Smooth hover effect */
+        }
+        .extension-card:hover {
+            transform: translateY(-5px); /* Lift card on hover */
+        }
+        /* Link styling */
+        .extension-link {
+            color: #2563eb; /* Blue color for links */
+            text-decoration: none; /* No underline by default */
+            font-weight: 600; /* Semi-bold */
+        }
+        .extension-link:hover {
+            text-decoration: underline; /* Underline on hover */
+        }
+        /* List item styling */
+        .feature-item {
+            margin-bottom: 0.5rem; /* Space between list items */
+            line-height: 1.5; /* Improve readability */
+        }
+        .feature-item::before {
+            content: "•"; /* Bullet point */
+            color: #60a5fa; /* Light blue bullet */
+            display: inline-block;
+            width: 1em;
+            margin-left: -1em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="text-center py-8">
+            <h1 class="text-5xl font-extrabold text-gray-800 tracking-tight">Chrome Extensions</h1>
+            <p class="text-xl text-gray-600 mt-2">A collection of useful tools I've developed</p>
+        </header>
+
+        <main>
+            <!-- Gemini Chats Index Extension -->
+            <section class="extension-card">
+                <h2 class="text-2xl font-bold mb-4">
+                    <a href="https://chromewebstore.google.com/detail/gemini-chats-index/hccojdblelhcjcaicojccjdialihpkmb" target="_blank" rel="noopener noreferrer" class="extension-link">Gemini Chats Index</a>
+                </h2>
+                <ul class="list-none pl-0">
+                    <li class="feature-item">Outputs all your Gemini Chats links to a spreadsheet.</li>
+                    <li class="feature-item">Helps access old chats buried in hundreds of links.</li>
+                </ul>
+            </section>
+
+            <!-- Web Scraper Pro Extension -->
+            <section class="extension-card">
+                <h2 class="text-2xl font-bold mb-4">
+                    <a href="https://chromewebstore.google.com/detail/web-scraper-pro/akbephkgpiahaoaadaeflmeghjfoacme" target="_blank" rel="noopener noreferrer" class="extension-link">Web Scraper Pro</a>
+                </h2>
+                <ul class="list-none pl-0">
+                    <li class="feature-item">Scrapes any webpage as HTML, and downloads all links and images.</li>
+                    <li class="feature-item">Useful to quickly download table of contents — or memes, lol.</li>
+                </ul>
+            </section>
+
+            <!-- Text Counter and Downloader Extension -->
+            <section class="extension-card">
+                <h2 class="text-2xl font-bold mb-4">
+                    <a href="https://chromewebstore.google.com/detail/text-counter-and-download/polpmnagfnaoghjcndkllckbaficlhif" target="_blank" rel="noopener noreferrer" class="extension-link">Text Counter and Downloader</a>
+                </h2>
+                <ul class="list-none pl-0">
+                    <li class="feature-item">Type or paste text in window to count words and characters, & optionally download as .txt file.</li>
+                    <li class="feature-item">Also a quick workaround for the annoying inability to create a new text file on macOS.</li>
+                </ul>
+            </section>
+
+            <!-- Grab cURL Extension -->
+            <section class="extension-card">
+                <h2 class="text-2xl font-bold mb-4">
+                    <a href="https://chromewebstore.google.com/detail/grab-curl/oefnfpjpckegabkolgianpnhbcilkinm" target="_blank" rel="noopener noreferrer" class="extension-link">Grab cURL</a>
+                </h2>
+                <ul class="list-none pl-0">
+                    <li class="feature-item">Converts browser network requests to cURL commands.</li>
+                    <li class="feature-item">Useful for debugging network interactions and API calls.</li>
+                </ul>
+            </section>
+
+            <!-- SHA-256 Hash Generator Extension -->
+            <section class="extension-card">
+                <h2 class="text-2xl font-bold mb-4">
+                    <a href="https://chromewebstore.google.com/detail/sha-256-hash-generator/ggmiamlckcmhlhhdgpkekachbmnlleed" target="_blank" rel="noopener noreferrer" class="extension-link">SHA-256 Hash Generator</a>
+                </h2>
+                <ul class="list-none pl-0">
+                    <li class="feature-item">Creates SHA-256 Hashes of any text entered or pasted.</li>
+                    <li class="feature-item">Ideal for testing out various hashing and encryption protocols.</li>
+                </ul>
+            </section>
+        </main>
+    </div>
+</body>
+</html>
