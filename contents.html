@@ -3,61 +3,288 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pages</title>
+    <title>Game Collection - Interactive Portfolio</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #d1d5db; /* A slightly darker light gray for the overall background */
+            background-color: #f8fafc;
+            min-height: 100vh;
+        }
+
+        .game-card {
+            background: #ffffff;
+            border: 2px solid #e5e7eb;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .game-card:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+
+
+        .preview-tooltip {
+            position: absolute;
+            top: -250px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 320px;
+            height: 180px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.2);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            border: 3px solid #3b82f6;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .game-card:hover .preview-tooltip {
+            opacity: 1;
+            visibility: visible;
+            top: -270px;
+        }
+
+        .preview-tooltip::before {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 8px solid #3b82f6;
+            z-index: 1001;
+        }
+
+        .preview-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            pointer-events: none;
+            transform: scale(0.5);
+            transform-origin: top left;
+            width: 200%;
+            height: 200%;
+        }
+
+        .preview-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #6b7280;
+        }
+
+        .link-indicator {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            color: #6b7280;
+            transition: color 0.2s ease;
+        }
+
+        .game-card:hover .link-indicator {
+            color: #3b82f6;
         }
     </style>
 </head>
 <body class="flex items-center justify-center min-h-screen p-4">
-    <div class="bg-white p-8 rounded-lg shadow-xl max-w-4xl w-full">
+    <div class="bg-white p-10 rounded-lg shadow-lg max-w-6xl w-full border border-gray-200">
         <!-- Main Header -->
-        <h1 class="text-3xl font-bold text-center text-white mb-8 rounded-lg p-4 bg-blue-900">
-            Pages
-        </h1>
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-gray-800 mb-4">
+                Games and Experiences
+            </h1>
+            <div class="w-24 h-1 bg-blue-600 mx-auto mt-4 rounded-full"></div>
+        </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Alphabetized Links -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             <!-- Arkanoid Link -->
-            <a href="https://physicskev.github.io/html/arkanoid.html"
-               class="block p-6 bg-gray-100 text-gray-800 rounded-lg shadow-sm hover:shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1 hover:scale-105 text-center font-semibold text-lg">
-                Arkanoid
+            <a href="https://physicskev.github.io/html/arkanoid.html" 
+               class="game-card block p-8 rounded-lg relative group"
+               data-preview="https://physicskev.github.io/html/arkanoid.html">
+                <div class="preview-tooltip">
+                    <div class="preview-loading">
+                        <i class="fas fa-spinner fa-spin text-2xl"></i>
+                    </div>
+                </div>
+                <i class="fas fa-external-link-alt link-indicator text-lg"></i>
+                <div class="text-center">
+                    <h3 class="text-xl font-bold text-gray-800 mb-2">Arkanoid</h3>
+                    <p class="text-gray-600 text-sm">Classic brick-breaking arcade game</p>
+                </div>
             </a>
 
             <!-- Blocks Link -->
-            <a href="https://physicskev.github.io/html/blocks.html"
-               class="block p-6 bg-gray-100 text-gray-800 rounded-lg shadow-sm hover:shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1 hover:scale-105 text-center font-semibold text-lg">
-                Blocks
+            <a href="https://physicskev.github.io/html/blocks.html" 
+               class="game-card block p-8 rounded-lg relative group"
+               data-preview="https://physicskev.github.io/html/blocks.html">
+                <div class="preview-tooltip">
+                    <div class="preview-loading">
+                        <i class="fas fa-spinner fa-spin text-2xl"></i>
+                    </div>
+                </div>
+                <i class="fas fa-external-link-alt link-indicator text-lg"></i>
+                <div class="text-center">
+                    <h3 class="text-xl font-bold text-gray-800 mb-2">Bitcoin Visualizer</h3>
+                    <p class="text-gray-600 text-sm">Experience Bitcoin visualization</p>
+                </div>
             </a>
 
             <!-- Match Link -->
-            <a href="https://physicskev.github.io/html/match.html"
-               class="block p-6 bg-gray-100 text-gray-800 rounded-lg shadow-sm hover:shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1 hover:scale-105 text-center font-semibold text-lg">
-                Match
+            <a href="https://physicskev.github.io/html/match.html" 
+               class="game-card block p-8 rounded-lg relative group"
+               data-preview="https://physicskev.github.io/html/match.html">
+                <div class="preview-tooltip">
+                    <div class="preview-loading">
+                        <i class="fas fa-spinner fa-spin text-2xl"></i>
+                    </div>
+                </div>
+                <i class="fas fa-external-link-alt link-indicator text-lg"></i>
+                <div class="text-center">
+                    <h3 class="text-xl font-bold text-gray-800 mb-2">Match</h3>
+                    <p class="text-gray-600 text-sm">Memory matching card game</p>
+                </div>
             </a>
             
             <!-- Memory Link -->
-            <a href="https://physicskev.github.io/html/memory.html"
-               class="block p-6 bg-gray-100 text-gray-800 rounded-lg shadow-sm hover:shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1 hover:scale-105 text-center font-semibold text-lg">
-                Memory Palace
+            <a href="https://physicskev.github.io/html/memory.html" 
+               class="game-card block p-8 rounded-lg relative group"
+               data-preview="https://physicskev.github.io/html/memory.html">
+                <div class="preview-tooltip">
+                    <div class="preview-loading">
+                        <i class="fas fa-spinner fa-spin text-2xl"></i>
+                    </div>
+                </div>
+                <i class="fas fa-external-link-alt link-indicator text-lg"></i>
+                <div class="text-center">
+                    <h3 class="text-xl font-bold text-gray-800 mb-2">Memory Palace</h3>
+                    <p class="text-gray-600 text-sm">Enhance your memory skills</p>
+                </div>
             </a>
 
-            <!-- Memory Link -->
-            <a href="https://physicskev.github.io/html/wordrunner.html"
-               class="block p-6 bg-gray-100 text-gray-800 rounded-lg shadow-sm hover:shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1 hover:scale-105 text-center font-semibold text-lg">
-                Word Runner / Boggle
+            <!-- Word Runner Link -->
+            <a href="https://physicskev.github.io/html/wordrunner.html" 
+               class="game-card block p-8 rounded-lg relative group"
+               data-preview="https://physicskev.github.io/html/wordrunner.html">
+                <div class="preview-tooltip">
+                    <div class="preview-loading">
+                        <i class="fas fa-spinner fa-spin text-2xl"></i>
+                    </div>
+                </div>
+                <i class="fas fa-external-link-alt link-indicator text-lg"></i>
+                <div class="text-center">
+                    <h3 class="text-xl font-bold text-gray-800 mb-2">Word Runner</h3>
+                    <p class="text-gray-600 text-sm">Fast-paced word finding game</p>
+                </div>
             </a>
             
             <!-- Pong Link -->
-            <a href="https://physicskev.github.io/html/pong.html"
-               class="block p-6 bg-gray-100 text-gray-800 rounded-lg shadow-sm hover:shadow-md transition duration-300 ease-in-out transform hover:-translate-y-1 hover:scale-105 text-center font-semibold text-lg">
-                Pong
+            <a href="https://physicskev.github.io/html/pong.html" 
+               class="game-card block p-8 rounded-lg relative group"
+               data-preview="https://physicskev.github.io/html/pong.html">
+                <div class="preview-tooltip">
+                    <div class="preview-loading">
+                        <i class="fas fa-spinner fa-spin text-2xl"></i>
+                    </div>
+                </div>
+                <i class="fas fa-external-link-alt link-indicator text-lg"></i>
+                <div class="text-center">
+                    <h3 class="text-xl font-bold text-gray-800 mb-2">Pong</h3>
+                    <p class="text-gray-600 text-sm">Classic retro paddle game</p>
+                </div>
             </a>
         </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-12 pt-8 border-t border-gray-200">
+        </div>
     </div>
+
+    <script>
+        // Webpage preview functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const gameCards = document.querySelectorAll('.game-card');
+            console.log('Found', gameCards.length, 'game cards');
+            
+            gameCards.forEach((card, index) => {
+                let previewLoaded = false;
+                
+                card.addEventListener('mouseenter', function() {
+                    console.log('Hover detected on card', index);
+                    const tooltip = this.querySelector('.preview-tooltip');
+                    
+                    // Make tooltip visible immediately to show loading
+                    tooltip.style.opacity = '1';
+                    tooltip.style.visibility = 'visible';
+                    
+                    if (!previewLoaded) {
+                        const previewUrl = this.getAttribute('data-preview');
+                        const loadingDiv = tooltip.querySelector('.preview-loading');
+                        
+                        console.log('Loading preview for:', previewUrl);
+                        
+                        // Show loading immediately
+                        loadingDiv.innerHTML = '<i class="fas fa-spinner fa-spin text-2xl"></i><br><span class="text-xs">Loading preview...</span>';
+                        
+                        // Create iframe for preview
+                        const iframe = document.createElement('iframe');
+                        iframe.className = 'preview-iframe';
+                        iframe.src = previewUrl;
+                        iframe.loading = 'eager';
+                        iframe.style.border = 'none';
+                        
+                        // Handle iframe load
+                        iframe.onload = function() {
+                            console.log('Preview loaded successfully');
+                            loadingDiv.style.display = 'none';
+                            tooltip.appendChild(iframe);
+                        };
+                        
+                        // Handle iframe error
+                        iframe.onerror = function() {
+                            console.log('Preview failed to load');
+                            loadingDiv.innerHTML = '<i class="fas fa-exclamation-triangle text-red-500"></i><br><span class="text-xs">Preview unavailable</span>';
+                        };
+                        
+                        // Add iframe immediately and set timeout for fallback
+                        tooltip.appendChild(iframe);
+                        
+                        // Fallback timeout
+                        setTimeout(() => {
+                            if (loadingDiv.style.display !== 'none') {
+                                console.log('Preview timeout, showing fallback');
+                                loadingDiv.innerHTML = '<i class="fas fa-image text-blue-500"></i><br><span class="text-xs">Click to view</span>';
+                            }
+                        }, 3000);
+                        
+                        previewLoaded = true;
+                    }
+                });
+                
+                // Add mouseleave to hide tooltip
+                card.addEventListener('mouseleave', function() {
+                    const tooltip = this.querySelector('.preview-tooltip');
+                    tooltip.style.opacity = '0';
+                    tooltip.style.visibility = 'hidden';
+                });
+            });
+        });
+    </script>
 </body>
 </html>
