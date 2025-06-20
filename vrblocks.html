@@ -708,24 +708,34 @@
         }
 
         function initVRControllers() {
-            // Create a group to hold the camera for VR movement
-            vrCameraGroup = new THREE.Group();
-            vrCameraGroup.add(camera);
-            scene.add(vrCameraGroup);
-            
-            // Set initial camera group position to match the camera position
-            vrCameraGroup.position.copy(camera.position);
-            camera.position.set(0, 0, 0); // Reset camera to origin within the group
+            // Only create camera group if it doesn't exist
+            if (!vrCameraGroup) {
+                vrCameraGroup = new THREE.Group();
+                
+                // Store original camera position
+                const originalPosition = camera.position.clone();
+                
+                // Remove camera from scene and add to group
+                scene.remove(camera);
+                vrCameraGroup.add(camera);
+                scene.add(vrCameraGroup);
+                
+                // Set camera group position and reset camera to origin within group
+                vrCameraGroup.position.copy(originalPosition);
+                camera.position.set(0, 0, 0);
+                
+                console.log('VR Camera group created at position:', vrCameraGroup.position);
+            }
             
             // Get VR controllers
             controller1 = renderer.xr.getController(0);
             controller2 = renderer.xr.getController(1);
             
-            // Add controllers to the camera group so they move with the player
-            vrCameraGroup.add(controller1);
-            vrCameraGroup.add(controller2);
+            // Add controllers to the camera group
+            if (controller1) vrCameraGroup.add(controller1);
+            if (controller2) vrCameraGroup.add(controller2);
             
-            console.log('VR Controllers initialized');
+            console.log('VR Controllers initialized - Left:', !!controller1, 'Right:', !!controller2);
         }
 
         function updateVRControls() {
@@ -739,17 +749,36 @@
                 if (inputSource.gamepad) {
                     const gamepad = inputSource.gamepad;
                     
-                    // Check for joystick input (axes 2,3 are typically the right joystick on Quest)
-                    if (gamepad.axes.length >= 4) {
-                        const rightStickY = gamepad.axes[3]; // Right joystick Y-axis
-                        const leftStickY = gamepad.axes[1];  // Left joystick Y-axis
+                    // Check for trigger presses (show/hide console like desktop version)
+                    if (gamepad.buttons.length > 0) {
+                        const triggerPressed = gamepad.buttons[0].pressed; // Main trigger
                         
-                        // Use either joystick for zoom (whichever has more input)
-                        const zoomInput = Math.abs(rightStickY) > Math.abs(leftStickY) ? rightStickY : leftStickY;
+                        if (triggerPressed && !inputSource.triggerWasPressed) {
+                            // Trigger just pressed - toggle controls visibility
+                            if (controlsVisible) {
+                                hideControls();
+                            } else {
+                                showControls();
+                            }
+                            console.log('VR Trigger pressed - controls toggled');
+                        }
+                        inputSource.triggerWasPressed = triggerPressed;
+                    }
+                    
+                    // Check for joystick input
+                    if (gamepad.axes.length >= 4) {
+                        const leftStickX = gamepad.axes[0];   // Left joystick X-axis (rotation)
+                        const leftStickY = gamepad.axes[1];   // Left joystick Y-axis (zoom)
+                        const rightStickX = gamepad.axes[2];  // Right joystick X-axis (rotation)
+                        const rightStickY = gamepad.axes[3];  // Right joystick Y-axis (zoom)
+                        
+                        // ZOOM: Use Y-axis from either joystick
+                        const zoomInputLeft = leftStickY;
+                        const zoomInputRight = rightStickY;
+                        const zoomInput = Math.abs(zoomInputLeft) > Math.abs(zoomInputRight) ? zoomInputLeft : zoomInputRight;
                         
                         if (Math.abs(zoomInput) > 0.1) { // Dead zone
-                            const zoomSpeed = 0.5; // Adjust zoom speed
-                            const zoomDirection = new THREE.Vector3(0, 0, zoomInput * zoomSpeed);
+                            const zoomSpeed = 0.3; // Slower zoom for better control
                             
                             // Apply zoom relative to camera direction
                             const cameraDirection = new THREE.Vector3();
@@ -757,8 +786,31 @@
                             
                             // Move the camera group forward/backward
                             vrCameraGroup.position.add(cameraDirection.multiplyScalar(zoomInput * zoomSpeed));
+                        }
+                        
+                        // ROTATION: Use X-axis from either joystick to orbit around the cube
+                        const rotationInputLeft = leftStickX;
+                        const rotationInputRight = rightStickX;
+                        const rotationInput = Math.abs(rotationInputLeft) > Math.abs(rotationInputRight) ? rotationInputLeft : rotationInputRight;
+                        
+                        if (Math.abs(rotationInput) > 0.1) { // Dead zone
+                            const rotationSpeed = 0.02;
                             
-                            console.log('VR Zoom:', zoomInput, 'Position:', vrCameraGroup.position);
+                            // Get current position relative to origin
+                            const currentPos = vrCameraGroup.position.clone();
+                            const distance = currentPos.length();
+                            
+                            // Calculate new angle
+                            const currentAngle = Math.atan2(currentPos.z, currentPos.x);
+                            const newAngle = currentAngle + (rotationInput * rotationSpeed);
+                            
+                            // Set new position (orbit around the cube)
+                            vrCameraGroup.position.x = Math.cos(newAngle) * distance;
+                            vrCameraGroup.position.z = Math.sin(newAngle) * distance;
+                            
+                            // Keep looking at the center
+                            const lookDirection = new THREE.Vector3(0, 0, 0).sub(vrCameraGroup.position).normalize();
+                            vrCameraGroup.lookAt(0, 0, 0);
                         }
                     }
                 }
@@ -955,8 +1007,9 @@
             const elapsedTime = animationClock.getElapsedTime();
             
             if (blockGroup) {
-                blockGroup.rotation.y = elapsedTime * 0.0035;
-                blockGroup.rotation.x = Math.sin(elapsedTime * 0.001) * 0.02;
+                // Continue cube rotation in both desktop and VR modes
+                blockGroup.rotation.y = elapsedTime * 0.0035; // Slow rotation
+                blockGroup.rotation.x = Math.sin(elapsedTime * 0.001) * 0.02; // Subtle wobble
                 updateGlitterEffect(elapsedTime);
             }
         }
