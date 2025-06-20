@@ -375,8 +375,8 @@
                 // Initialize UI controls
                 initUIControls();
                 
-                // Start render loop
-                animate();
+                // Start render loop - CRITICAL: Use setAnimationLoop for WebXR
+                renderer.setAnimationLoop(animate);
                 
                 console.log('VR Digital Manhattan initialized successfully!');
                 
@@ -407,8 +407,9 @@
         function initCamera() {
             const aspect = window.innerWidth / window.innerHeight;
             camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
-            camera.position.set(0, 1.6, 15); // VR-friendly position
+            camera.position.set(0, 1.6, 15); // VR-friendly position - standing height, 15 units back
             camera.lookAt(0, 0, 0);
+            console.log('Camera initialized at position:', camera.position);
         }
 
         function initRenderer() {
@@ -435,9 +436,14 @@
             // Create the WebXR button and add it to the body
             try {
                 xrButton = VRButton.createButton(renderer);
+                xrButton.style.position = 'absolute';
+                xrButton.style.bottom = '20px';
+                xrButton.style.right = '20px';
+                xrButton.style.zIndex = '100';
                 document.body.appendChild(xrButton);
                 showMessageBox("WebXR initialized. Click 'Enter VR' for immersive Bitcoin visualization!");
                 document.getElementById('vr-status').textContent = 'Ready';
+                console.log('WebXR button created and positioned');
             } catch (error) {
                 console.error('WebXR initialization failed:', error);
                 showMessageBox("WebXR not supported on this device/browser.", true);
@@ -447,7 +453,7 @@
             // Event listener for when an XR session starts (entering VR)
             renderer.xr.addEventListener('sessionstart', function () {
                 showMessageBox("Entering VR Digital Manhattan!");
-                console.log('XR Session started');
+                console.log('XR Session started - renderer.xr.isPresenting:', renderer.xr.isPresenting);
                 document.getElementById('vr-status').textContent = 'Active';
                 
                 // Hide UI panels in VR
@@ -519,6 +525,18 @@
             floor.position.y = -10;
             floor.receiveShadow = true;
             scene.add(floor);
+
+            // Add a test cube directly in front of camera for VR debugging
+            const testCubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+            const testCubeMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0xff0000,
+                emissive: 0x440000,
+                emissiveIntensity: 0.5
+            });
+            const testCube = new THREE.Mesh(testCubeGeometry, testCubeMaterial);
+            testCube.position.set(0, 1.6, -3); // Right in front of VR camera
+            scene.add(testCube);
+            console.log('Test cube added at:', testCube.position);
         }
 
         function initControls() {
@@ -769,6 +787,8 @@
             const blockSize = currentBlockSize;
             const totalSize = (dimension - 1) * (blockSize + gap);
             const startPos = -totalSize / 2;
+            
+            console.log(`Block formation: ${dimension}x${dimension}x${dimension}, totalSize: ${totalSize}, startPos: ${startPos}`);
             
             let index = 0;
             const matrix = new THREE.Matrix4();
@@ -1072,31 +1092,39 @@
         }
 
         function animate() {
+            // Update animations
             updateAnimations();
             
-            if (window.updateControls) {
+            // Update controls (only when not in XR)
+            if (window.updateControls && !renderer.xr.isPresenting) {
                 window.updateControls();
             }
             
+            // Update camera info
             updateCameraInfo();
             
+            // Render the scene
             renderer.render(scene, camera);
         }
 
-        // Check for WebXR support
+        // Check for WebXR support with detailed logging
         if ('xr' in navigator) {
+            console.log('Navigator.xr detected, checking immersive-vr support...');
             navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
                 if (supported) {
-                    console.log('WebXR VR is supported');
+                    console.log('WebXR VR is supported - immersive-vr sessions available');
                     document.getElementById('vr-status').textContent = 'Supported';
                 } else {
-                    console.log('WebXR VR is not supported');
+                    console.log('WebXR VR is not supported - immersive-vr sessions not available');
                     document.getElementById('vr-status').textContent = 'Not supported';
                     showMessageBox("WebXR VR not supported on this device.", true);
                 }
+            }).catch((error) => {
+                console.error('Error checking WebXR support:', error);
+                document.getElementById('vr-status').textContent = 'Error checking';
             });
         } else {
-            console.log('WebXR is not available');
+            console.log('WebXR is not available - navigator.xr not found');
             document.getElementById('vr-status').textContent = 'Not available';
             showMessageBox("WebXR not available in this browser.", true);
         }
@@ -1121,9 +1149,6 @@
                 initDigitalManhattan();
             }
         });
-
-        // Set animation loop for WebXR compatibility
-        renderer.setAnimationLoop(animate);
     </script>
 </body>
 </html> 
