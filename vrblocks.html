@@ -328,6 +328,12 @@
         let grabbingController = null;
         let lastControllerPosition = new THREE.Vector3();
         let cubeGrabOffset = new THREE.Vector3();
+        
+        // VR rotation state (separate from desktop)
+        let vrTargetRotationX = 0;
+        let vrTargetRotationY = 0;
+        let vrRotationX = 0;
+        let vrRotationY = 0;
 
         /**
          * Displays a message in a custom message box.
@@ -730,7 +736,15 @@
                 vrCameraGroup.position.copy(originalPosition);
                 camera.position.set(0, 0, 0);
                 
+                // Initialize VR rotation to match current camera position (like desktop)
+                const distance = originalPosition.length();
+                vrTargetRotationY = Math.atan2(originalPosition.z, originalPosition.x);
+                vrTargetRotationX = Math.asin(originalPosition.y / distance);
+                vrRotationY = vrTargetRotationY;
+                vrRotationX = vrTargetRotationX;
+                
                 console.log('VR Camera group created at position:', vrCameraGroup.position);
+                console.log('VR Initial rotation:', vrRotationX, vrRotationY);
             }
             
             // Get VR controllers
@@ -892,30 +906,28 @@
                     
                     console.log('🎯 STARTED GRABBING CUBE with controller', controllerIndex);
                 } else if (isGrabbingCube && grabbingController === controller) {
-                    // Continue grabbing - rotate cube based on controller movement
+                    // Continue grabbing - rotate view around cube (like mouse drag)
                     const currentPosition = controllerPosition;
                     const deltaPosition = currentPosition.clone().sub(lastControllerPosition);
                     
                     if (deltaPosition.length() > 0.001) { // Minimum movement threshold
-                        // Convert controller movement to cube rotation
-                        const rotationSpeed = 3.0; // Sensitivity
+                        // Convert controller movement to rotation (like mouse movement)
+                        const rotationSpeed = 10.0; // Much more reasonable speed, like mouse sensitivity
                         
-                        // Rotate around Y axis based on X movement
-                        if (Math.abs(deltaPosition.x) > 0.001) {
-                            targetRotationY += deltaPosition.x * rotationSpeed;
-                        }
+                        // Horizontal controller movement = horizontal rotation (Y axis)
+                        vrTargetRotationY += deltaPosition.x * rotationSpeed;
                         
-                        // Rotate around X axis based on Y movement  
-                        if (Math.abs(deltaPosition.y) > 0.001) {
-                            targetRotationX += deltaPosition.y * rotationSpeed;
-                        }
+                        // Vertical controller movement = vertical rotation (X axis)
+                        vrTargetRotationX += deltaPosition.y * rotationSpeed;
                         
-                        // Clamp X rotation to prevent flipping
-                        targetRotationX = Math.max(-Math.PI/2, Math.min(Math.PI/2, targetRotationX));
+                        // Clamp vertical rotation to prevent flipping (like mouse)
+                        vrTargetRotationX = Math.max(-Math.PI/2, Math.min(Math.PI/2, vrTargetRotationX));
                         
                         lastControllerPosition.copy(currentPosition);
                         
-                        console.log('🔄 Rotating cube:', deltaPosition.length());
+                        if (Math.random() < 0.1) { // Occasional logging to avoid spam
+                            console.log('🔄 VR Rotation:', vrTargetRotationX.toFixed(2), vrTargetRotationY.toFixed(2));
+                        }
                     }
                 }
             } else {
@@ -1348,19 +1360,17 @@
                 // VR mode - use VR controllers
                 updateVRControls();
                 
-                // Apply VR cube rotation when grabbed
-                if (isGrabbingCube) {
-                    // Smooth interpolation for grabbed rotation
-                    rotationX += (targetRotationX - rotationX) * 0.1;
-                    rotationY += (targetRotationY - rotationY) * 0.1;
-                    
-                    // Apply rotation to camera group to rotate view around cube
-                    const distance = vrCameraGroup.position.length();
-                    vrCameraGroup.position.x = Math.cos(rotationY) * Math.cos(rotationX) * distance;
-                    vrCameraGroup.position.y = Math.sin(rotationX) * distance;
-                    vrCameraGroup.position.z = Math.sin(rotationY) * Math.cos(rotationX) * distance;
-                    vrCameraGroup.lookAt(0, 0, 0);
-                }
+                // Apply VR rotation (both when grabbing and smooth interpolation)
+                // Smooth interpolation like desktop mouse controls
+                vrRotationX += (vrTargetRotationX - vrRotationX) * 0.05; // Same smoothing as desktop
+                vrRotationY += (vrTargetRotationY - vrRotationY) * 0.05;
+                
+                // Apply rotation to camera group (orbit around cube like mouse)
+                const distance = vrCameraGroup.position.length();
+                vrCameraGroup.position.x = Math.cos(vrRotationY) * Math.cos(vrRotationX) * distance;
+                vrCameraGroup.position.y = Math.sin(vrRotationX) * distance;
+                vrCameraGroup.position.z = Math.sin(vrRotationY) * Math.cos(vrRotationX) * distance;
+                vrCameraGroup.lookAt(0, 0, 0);
             } else {
                 // Desktop mode - use mouse/keyboard
                 if (window.updateControls) {
