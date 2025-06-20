@@ -540,14 +540,15 @@
             scene.add(floor);
 
             // Add a test cube for VR debugging - positioned near the Bitcoin blocks
-            const testCubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+            const testCubeGeometry = new THREE.BoxGeometry(2, 2, 2); // Bigger for easier grabbing
             const testCubeMaterial = new THREE.MeshStandardMaterial({ 
                 color: 0xff0000,
                 emissive: 0x440000,
                 emissiveIntensity: 0.5
             });
             const testCube = new THREE.Mesh(testCubeGeometry, testCubeMaterial);
-            testCube.position.set(-8, 8, -8); // Positioned to the side of the Bitcoin cube
+            testCube.position.set(-5, 5, -5); // Closer and easier to reach
+            testCube.name = 'testCube'; // Give it a name for debugging
             scene.add(testCube);
             console.log('Test cube added at:', testCube.position);
         }
@@ -743,9 +744,9 @@
                 // Add visual ray for controller 1
                 const geometry = new THREE.BufferGeometry().setFromPoints([
                     new THREE.Vector3(0, 0, 0),
-                    new THREE.Vector3(0, 0, -1)
+                    new THREE.Vector3(0, 0, -10) // Longer ray
                 ]);
-                const material = new THREE.LineBasicMaterial({ color: 0x00ffff, opacity: 0.7, transparent: true });
+                const material = new THREE.LineBasicMaterial({ color: 0x00ffff, opacity: 1.0, transparent: true, linewidth: 3 });
                 const line = new THREE.Line(geometry, material);
                 controller1.add(line);
                 controller1.userData.line = line;
@@ -757,9 +758,9 @@
                 // Add visual ray for controller 2
                 const geometry = new THREE.BufferGeometry().setFromPoints([
                     new THREE.Vector3(0, 0, 0),
-                    new THREE.Vector3(0, 0, -1)
+                    new THREE.Vector3(0, 0, -10) // Longer ray
                 ]);
-                const material = new THREE.LineBasicMaterial({ color: 0xff00ff, opacity: 0.7, transparent: true });
+                const material = new THREE.LineBasicMaterial({ color: 0xff00ff, opacity: 1.0, transparent: true, linewidth: 3 });
                 const line = new THREE.Line(geometry, material);
                 controller2.add(line);
                 controller2.userData.line = line;
@@ -838,6 +839,11 @@
         }
 
         function handleCubeManipulation(controller, triggerPressed, controllerIndex) {
+            if (!controller) {
+                console.log('No controller for index', controllerIndex);
+                return;
+            }
+            
             // Get controller world position and direction
             const controllerPosition = new THREE.Vector3();
             const controllerDirection = new THREE.Vector3();
@@ -845,11 +851,31 @@
             controller.getWorldPosition(controllerPosition);
             controller.getWorldDirection(controllerDirection);
             
-            // Set up raycaster from controller
-            vrRaycaster.set(controllerPosition, controllerDirection);
+            // Debug controller position
+            if (Math.random() < 0.01) { // Log occasionally to avoid spam
+                console.log(`Controller ${controllerIndex} position:`, controllerPosition, 'direction:', controllerDirection);
+            }
             
-            // Check for intersection with Bitcoin blocks
-            const intersects = vrRaycaster.intersectObjects(bitcoinBlocks);
+            // Set up raycaster from controller (pointing forward)
+            vrRaycaster.set(controllerPosition, controllerDirection.negate()); // Negate because controller points backward
+            
+            // Check for intersection with Bitcoin blocks AND the test cube
+            let allObjects = [...bitcoinBlocks];
+            // Also add the test cube for easier debugging
+            const testCube = scene.getObjectByName('testCube');
+            if (testCube) allObjects.push(testCube);
+            
+            const intersects = vrRaycaster.intersectObjects(allObjects, true);
+            
+            // Debug intersections
+            if (intersects.length > 0 && Math.random() < 0.05) {
+                console.log(`Controller ${controllerIndex} intersecting with ${intersects.length} objects`);
+            }
+            
+            // Debug trigger state
+            if (Math.random() < 0.02) {
+                console.log(`Controller ${controllerIndex} trigger:`, triggerPressed, 'grabbing:', isGrabbingCube);
+            }
             
             if (triggerPressed) {
                 if (!isGrabbingCube && intersects.length > 0) {
@@ -861,9 +887,10 @@
                     // Visual feedback
                     if (controller.userData.line) {
                         controller.userData.line.material.color.setHex(0x00ff00); // Green when grabbing
+                        controller.userData.line.scale.z = 5; // Make ray longer when grabbing
                     }
                     
-                    console.log('Started grabbing cube with controller', controllerIndex);
+                    console.log('🎯 STARTED GRABBING CUBE with controller', controllerIndex);
                 } else if (isGrabbingCube && grabbingController === controller) {
                     // Continue grabbing - rotate cube based on controller movement
                     const currentPosition = controllerPosition;
@@ -887,6 +914,8 @@
                         targetRotationX = Math.max(-Math.PI/2, Math.min(Math.PI/2, targetRotationX));
                         
                         lastControllerPosition.copy(currentPosition);
+                        
+                        console.log('🔄 Rotating cube:', deltaPosition.length());
                     }
                 }
             } else {
@@ -898,9 +927,10 @@
                     // Reset visual feedback
                     if (controller.userData.line) {
                         controller.userData.line.material.color.setHex(controllerIndex === 0 ? 0x00ffff : 0xff00ff);
+                        controller.userData.line.scale.z = 1; // Reset ray length
                     }
                     
-                    console.log('Stopped grabbing cube');
+                    console.log('🛑 STOPPED GRABBING CUBE');
                 }
             }
             
