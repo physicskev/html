@@ -323,6 +323,11 @@
         // VR Controller System
         let controller1, controller2;
         let vrCameraGroup;
+        let vrRaycaster;
+        let isGrabbingCube = false;
+        let grabbingController = null;
+        let lastControllerPosition = new THREE.Vector3();
+        let cubeGrabOffset = new THREE.Vector3();
 
         /**
          * Displays a message in a custom message box.
@@ -732,8 +737,36 @@
             controller2 = renderer.xr.getController(1);
             
             // Add controllers to the camera group
-            if (controller1) vrCameraGroup.add(controller1);
-            if (controller2) vrCameraGroup.add(controller2);
+            if (controller1) {
+                vrCameraGroup.add(controller1);
+                
+                // Add visual ray for controller 1
+                const geometry = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(0, 0, 0),
+                    new THREE.Vector3(0, 0, -1)
+                ]);
+                const material = new THREE.LineBasicMaterial({ color: 0x00ffff, opacity: 0.7, transparent: true });
+                const line = new THREE.Line(geometry, material);
+                controller1.add(line);
+                controller1.userData.line = line;
+            }
+            
+            if (controller2) {
+                vrCameraGroup.add(controller2);
+                
+                // Add visual ray for controller 2
+                const geometry = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(0, 0, 0),
+                    new THREE.Vector3(0, 0, -1)
+                ]);
+                const material = new THREE.LineBasicMaterial({ color: 0xff00ff, opacity: 0.7, transparent: true });
+                const line = new THREE.Line(geometry, material);
+                controller2.add(line);
+                controller2.userData.line = line;
+            }
+            
+            // Initialize VR raycaster
+            vrRaycaster = new THREE.Raycaster();
             
             console.log('VR Controllers initialized - Left:', !!controller1, 'Right:', !!controller2);
         }
@@ -744,75 +777,141 @@
             const session = renderer.xr.getSession();
             if (!session) return;
             
-            // Get input sources (controllers)
-            for (const inputSource of session.inputSources) {
-                if (inputSource.gamepad) {
-                    const gamepad = inputSource.gamepad;
+            // Process each controller
+            [controller1, controller2].forEach((controller, index) => {
+                if (!controller) return;
+                
+                const inputSource = session.inputSources[index];
+                if (!inputSource || !inputSource.gamepad) return;
+                
+                const gamepad = inputSource.gamepad;
+                const triggerPressed = gamepad.buttons[0]?.pressed || false;
+                const gripPressed = gamepad.buttons[1]?.pressed || false;
+                
+                // Handle cube manipulation with trigger
+                handleCubeManipulation(controller, triggerPressed, index);
+                
+                // Handle UI toggle with grip button
+                if (gripPressed && !inputSource.gripWasPressed) {
+                    if (controlsVisible) {
+                        hideControls();
+                    } else {
+                        showControls();
+                    }
+                    console.log('VR Grip pressed - controls toggled');
+                }
+                inputSource.gripWasPressed = gripPressed;
+                
+                // Handle joystick movement (only when not grabbing cube)
+                if (!isGrabbingCube && gamepad.axes.length >= 4) {
+                    const leftStickX = gamepad.axes[0];
+                    const leftStickY = gamepad.axes[1];
+                    const rightStickX = gamepad.axes[2];
+                    const rightStickY = gamepad.axes[3];
                     
-                    // Check for trigger presses (show/hide console like desktop version)
-                    if (gamepad.buttons.length > 0) {
-                        const triggerPressed = gamepad.buttons[0].pressed; // Main trigger
-                        
-                        if (triggerPressed && !inputSource.triggerWasPressed) {
-                            // Trigger just pressed - toggle controls visibility
-                            if (controlsVisible) {
-                                hideControls();
-                            } else {
-                                showControls();
-                            }
-                            console.log('VR Trigger pressed - controls toggled');
-                        }
-                        inputSource.triggerWasPressed = triggerPressed;
+                    // ZOOM: Use Y-axis from either joystick
+                    const zoomInput = Math.abs(leftStickY) > Math.abs(rightStickY) ? leftStickY : rightStickY;
+                    
+                    if (Math.abs(zoomInput) > 0.1) {
+                        const zoomSpeed = 0.3;
+                        const cameraDirection = new THREE.Vector3();
+                        camera.getWorldDirection(cameraDirection);
+                        vrCameraGroup.position.add(cameraDirection.multiplyScalar(zoomInput * zoomSpeed));
                     }
                     
-                    // Check for joystick input
-                    if (gamepad.axes.length >= 4) {
-                        const leftStickX = gamepad.axes[0];   // Left joystick X-axis (rotation)
-                        const leftStickY = gamepad.axes[1];   // Left joystick Y-axis (zoom)
-                        const rightStickX = gamepad.axes[2];  // Right joystick X-axis (rotation)
-                        const rightStickY = gamepad.axes[3];  // Right joystick Y-axis (zoom)
+                    // ROTATION: Use X-axis from either joystick to orbit around the cube
+                    const rotationInput = Math.abs(leftStickX) > Math.abs(rightStickX) ? leftStickX : rightStickX;
+                    
+                    if (Math.abs(rotationInput) > 0.1) {
+                        const rotationSpeed = 0.02;
+                        const currentPos = vrCameraGroup.position.clone();
+                        const distance = currentPos.length();
+                        const currentAngle = Math.atan2(currentPos.z, currentPos.x);
+                        const newAngle = currentAngle + (rotationInput * rotationSpeed);
                         
-                        // ZOOM: Use Y-axis from either joystick
-                        const zoomInputLeft = leftStickY;
-                        const zoomInputRight = rightStickY;
-                        const zoomInput = Math.abs(zoomInputLeft) > Math.abs(zoomInputRight) ? zoomInputLeft : zoomInputRight;
-                        
-                        if (Math.abs(zoomInput) > 0.1) { // Dead zone
-                            const zoomSpeed = 0.3; // Slower zoom for better control
-                            
-                            // Apply zoom relative to camera direction
-                            const cameraDirection = new THREE.Vector3();
-                            camera.getWorldDirection(cameraDirection);
-                            
-                            // Move the camera group forward/backward
-                            vrCameraGroup.position.add(cameraDirection.multiplyScalar(zoomInput * zoomSpeed));
-                        }
-                        
-                        // ROTATION: Use X-axis from either joystick to orbit around the cube
-                        const rotationInputLeft = leftStickX;
-                        const rotationInputRight = rightStickX;
-                        const rotationInput = Math.abs(rotationInputLeft) > Math.abs(rotationInputRight) ? rotationInputLeft : rotationInputRight;
-                        
-                        if (Math.abs(rotationInput) > 0.1) { // Dead zone
-                            const rotationSpeed = 0.02;
-                            
-                            // Get current position relative to origin
-                            const currentPos = vrCameraGroup.position.clone();
-                            const distance = currentPos.length();
-                            
-                            // Calculate new angle
-                            const currentAngle = Math.atan2(currentPos.z, currentPos.x);
-                            const newAngle = currentAngle + (rotationInput * rotationSpeed);
-                            
-                            // Set new position (orbit around the cube)
-                            vrCameraGroup.position.x = Math.cos(newAngle) * distance;
-                            vrCameraGroup.position.z = Math.sin(newAngle) * distance;
-                            
-                            // Keep looking at the center
-                            const lookDirection = new THREE.Vector3(0, 0, 0).sub(vrCameraGroup.position).normalize();
-                            vrCameraGroup.lookAt(0, 0, 0);
-                        }
+                        vrCameraGroup.position.x = Math.cos(newAngle) * distance;
+                        vrCameraGroup.position.z = Math.sin(newAngle) * distance;
+                        vrCameraGroup.lookAt(0, 0, 0);
                     }
+                }
+            });
+        }
+
+        function handleCubeManipulation(controller, triggerPressed, controllerIndex) {
+            // Get controller world position and direction
+            const controllerPosition = new THREE.Vector3();
+            const controllerDirection = new THREE.Vector3();
+            
+            controller.getWorldPosition(controllerPosition);
+            controller.getWorldDirection(controllerDirection);
+            
+            // Set up raycaster from controller
+            vrRaycaster.set(controllerPosition, controllerDirection);
+            
+            // Check for intersection with Bitcoin blocks
+            const intersects = vrRaycaster.intersectObjects(bitcoinBlocks);
+            
+            if (triggerPressed) {
+                if (!isGrabbingCube && intersects.length > 0) {
+                    // Start grabbing
+                    isGrabbingCube = true;
+                    grabbingController = controller;
+                    lastControllerPosition.copy(controllerPosition);
+                    
+                    // Visual feedback
+                    if (controller.userData.line) {
+                        controller.userData.line.material.color.setHex(0x00ff00); // Green when grabbing
+                    }
+                    
+                    console.log('Started grabbing cube with controller', controllerIndex);
+                } else if (isGrabbingCube && grabbingController === controller) {
+                    // Continue grabbing - rotate cube based on controller movement
+                    const currentPosition = controllerPosition;
+                    const deltaPosition = currentPosition.clone().sub(lastControllerPosition);
+                    
+                    if (deltaPosition.length() > 0.001) { // Minimum movement threshold
+                        // Convert controller movement to cube rotation
+                        const rotationSpeed = 3.0; // Sensitivity
+                        
+                        // Rotate around Y axis based on X movement
+                        if (Math.abs(deltaPosition.x) > 0.001) {
+                            targetRotationY += deltaPosition.x * rotationSpeed;
+                        }
+                        
+                        // Rotate around X axis based on Y movement  
+                        if (Math.abs(deltaPosition.y) > 0.001) {
+                            targetRotationX += deltaPosition.y * rotationSpeed;
+                        }
+                        
+                        // Clamp X rotation to prevent flipping
+                        targetRotationX = Math.max(-Math.PI/2, Math.min(Math.PI/2, targetRotationX));
+                        
+                        lastControllerPosition.copy(currentPosition);
+                    }
+                }
+            } else {
+                if (isGrabbingCube && grabbingController === controller) {
+                    // Stop grabbing
+                    isGrabbingCube = false;
+                    grabbingController = null;
+                    
+                    // Reset visual feedback
+                    if (controller.userData.line) {
+                        controller.userData.line.material.color.setHex(controllerIndex === 0 ? 0x00ffff : 0xff00ff);
+                    }
+                    
+                    console.log('Stopped grabbing cube');
+                }
+            }
+            
+            // Update ray visual based on intersection
+            if (controller.userData.line) {
+                if (intersects.length > 0 && !isGrabbingCube) {
+                    controller.userData.line.material.color.setHex(0xffff00); // Yellow when pointing at cube
+                    controller.userData.line.material.opacity = 1.0;
+                } else if (!isGrabbingCube) {
+                    controller.userData.line.material.color.setHex(controllerIndex === 0 ? 0x00ffff : 0xff00ff);
+                    controller.userData.line.material.opacity = 0.7;
                 }
             }
         }
@@ -1218,6 +1317,20 @@
             if (renderer.xr.isPresenting) {
                 // VR mode - use VR controllers
                 updateVRControls();
+                
+                // Apply VR cube rotation when grabbed
+                if (isGrabbingCube) {
+                    // Smooth interpolation for grabbed rotation
+                    rotationX += (targetRotationX - rotationX) * 0.1;
+                    rotationY += (targetRotationY - rotationY) * 0.1;
+                    
+                    // Apply rotation to camera group to rotate view around cube
+                    const distance = vrCameraGroup.position.length();
+                    vrCameraGroup.position.x = Math.cos(rotationY) * Math.cos(rotationX) * distance;
+                    vrCameraGroup.position.y = Math.sin(rotationX) * distance;
+                    vrCameraGroup.position.z = Math.sin(rotationY) * Math.cos(rotationX) * distance;
+                    vrCameraGroup.lookAt(0, 0, 0);
+                }
             } else {
                 // Desktop mode - use mouse/keyboard
                 if (window.updateControls) {
