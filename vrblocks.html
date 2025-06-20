@@ -320,6 +320,10 @@
         let raycaster, mouse;
         let originalCameraPosition;
 
+        // VR Controller System
+        let controller1, controller2;
+        let vrCameraGroup;
+
         /**
          * Displays a message in a custom message box.
          * @param {string} message The message to display.
@@ -442,7 +446,7 @@
                 xrButton.style.right = '20px';
                 xrButton.style.zIndex = '100';
                 document.body.appendChild(xrButton);
-                showMessageBox("WebXR initialized. Click 'Enter VR' for immersive Bitcoin visualization!");
+                showMessageBox("WebXR initialized. Use joysticks to zoom in VR!");
                 document.getElementById('vr-status').textContent = 'Ready';
                 console.log('WebXR button created and positioned');
             } catch (error) {
@@ -453,13 +457,16 @@
 
             // Event listener for when an XR session starts (entering VR)
             renderer.xr.addEventListener('sessionstart', function () {
-                showMessageBox("Entering VR Digital Manhattan!");
+                showMessageBox("VR Active! Use joysticks to zoom in/out");
                 console.log('XR Session started - renderer.xr.isPresenting:', renderer.xr.isPresenting);
                 document.getElementById('vr-status').textContent = 'Active';
                 
                 // Hide UI panels in VR
                 document.getElementById('controls-panel').style.display = 'none';
                 document.getElementById('info-panel').style.display = 'none';
+                
+                // Initialize VR controllers
+                initVRControllers();
             });
 
             // Event listener for when an XR session ends (exiting VR)
@@ -698,6 +705,64 @@
             }
 
             window.updateControls = updateControls;
+        }
+
+        function initVRControllers() {
+            // Create a group to hold the camera for VR movement
+            vrCameraGroup = new THREE.Group();
+            vrCameraGroup.add(camera);
+            scene.add(vrCameraGroup);
+            
+            // Set initial camera group position to match the camera position
+            vrCameraGroup.position.copy(camera.position);
+            camera.position.set(0, 0, 0); // Reset camera to origin within the group
+            
+            // Get VR controllers
+            controller1 = renderer.xr.getController(0);
+            controller2 = renderer.xr.getController(1);
+            
+            // Add controllers to the camera group so they move with the player
+            vrCameraGroup.add(controller1);
+            vrCameraGroup.add(controller2);
+            
+            console.log('VR Controllers initialized');
+        }
+
+        function updateVRControls() {
+            if (!renderer.xr.isPresenting || !controller1 || !controller2) return;
+            
+            const session = renderer.xr.getSession();
+            if (!session) return;
+            
+            // Get input sources (controllers)
+            for (const inputSource of session.inputSources) {
+                if (inputSource.gamepad) {
+                    const gamepad = inputSource.gamepad;
+                    
+                    // Check for joystick input (axes 2,3 are typically the right joystick on Quest)
+                    if (gamepad.axes.length >= 4) {
+                        const rightStickY = gamepad.axes[3]; // Right joystick Y-axis
+                        const leftStickY = gamepad.axes[1];  // Left joystick Y-axis
+                        
+                        // Use either joystick for zoom (whichever has more input)
+                        const zoomInput = Math.abs(rightStickY) > Math.abs(leftStickY) ? rightStickY : leftStickY;
+                        
+                        if (Math.abs(zoomInput) > 0.1) { // Dead zone
+                            const zoomSpeed = 0.5; // Adjust zoom speed
+                            const zoomDirection = new THREE.Vector3(0, 0, zoomInput * zoomSpeed);
+                            
+                            // Apply zoom relative to camera direction
+                            const cameraDirection = new THREE.Vector3();
+                            camera.getWorldDirection(cameraDirection);
+                            
+                            // Move the camera group forward/backward
+                            vrCameraGroup.position.add(cameraDirection.multiplyScalar(zoomInput * zoomSpeed));
+                            
+                            console.log('VR Zoom:', zoomInput, 'Position:', vrCameraGroup.position);
+                        }
+                    }
+                }
+            }
         }
 
         function initKeyboardControls() {
@@ -1096,9 +1161,15 @@
             // Update animations
             updateAnimations();
             
-            // Update controls (only when not in XR)
-            if (window.updateControls && !renderer.xr.isPresenting) {
-                window.updateControls();
+            // Update controls based on mode
+            if (renderer.xr.isPresenting) {
+                // VR mode - use VR controllers
+                updateVRControls();
+            } else {
+                // Desktop mode - use mouse/keyboard
+                if (window.updateControls) {
+                    window.updateControls();
+                }
             }
             
             // Update camera info
