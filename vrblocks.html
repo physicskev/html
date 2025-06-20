@@ -817,36 +817,49 @@
                 }
                 inputSource.gripWasPressed = gripPressed;
                 
-                // Handle joystick movement (only when not grabbing cube)
-                if (!isGrabbingCube && gamepad.axes.length >= 4) {
-                    const leftStickX = gamepad.axes[0];
-                    const leftStickY = gamepad.axes[1];
-                    const rightStickX = gamepad.axes[2];
-                    const rightStickY = gamepad.axes[3];
+                // Handle joystick movement (always active, not just when not grabbing)
+                if (gamepad.axes.length >= 4) {
+                    const leftStickX = gamepad.axes[0];   // Left stick X = pan left/right
+                    const leftStickY = gamepad.axes[1];   // Left stick Y = zoom in/out
+                    const rightStickX = gamepad.axes[2];  // Right stick X = pan left/right  
+                    const rightStickY = gamepad.axes[3];  // Right stick Y = zoom in/out
                     
-                    // ZOOM: Use Y-axis from either joystick
-                    const zoomInput = Math.abs(leftStickY) > Math.abs(rightStickY) ? leftStickY : rightStickY;
+                    // ZOOM: Up/Down on either joystick (Y-axis)
+                    const zoomInputLeft = leftStickY;
+                    const zoomInputRight = rightStickY;
+                    const zoomInput = Math.abs(zoomInputLeft) > Math.abs(zoomInputRight) ? zoomInputLeft : zoomInputRight;
                     
                     if (Math.abs(zoomInput) > 0.1) {
-                        const zoomSpeed = 0.3;
+                        const zoomSpeed = 0.2; // Slower zoom for better control
+                        const minDistance = 5;  // Prevent getting too close
+                        const maxDistance = 50; // Prevent going too far
+                        
                         const cameraDirection = new THREE.Vector3();
                         camera.getWorldDirection(cameraDirection);
-                        vrCameraGroup.position.add(cameraDirection.multiplyScalar(zoomInput * zoomSpeed));
+                        const newPosition = vrCameraGroup.position.clone().add(cameraDirection.multiplyScalar(zoomInput * zoomSpeed));
+                        
+                        // Check distance limits
+                        const newDistance = newPosition.length();
+                        if (newDistance >= minDistance && newDistance <= maxDistance) {
+                            vrCameraGroup.position.copy(newPosition);
+                        }
                     }
                     
-                    // ROTATION: Use X-axis from either joystick to orbit around the cube
-                    const rotationInput = Math.abs(leftStickX) > Math.abs(rightStickX) ? leftStickX : rightStickX;
+                    // PAN LEFT/RIGHT: Left/Right on either joystick (X-axis)
+                    const panInputLeft = leftStickX;
+                    const panInputRight = rightStickX;
+                    const panInput = Math.abs(panInputLeft) > Math.abs(panInputRight) ? panInputLeft : panInputRight;
                     
-                    if (Math.abs(rotationInput) > 0.1) {
-                        const rotationSpeed = 0.02;
-                        const currentPos = vrCameraGroup.position.clone();
-                        const distance = currentPos.length();
-                        const currentAngle = Math.atan2(currentPos.z, currentPos.x);
-                        const newAngle = currentAngle + (rotationInput * rotationSpeed);
+                    if (Math.abs(panInput) > 0.1) {
+                        const panSpeed = 0.02; // Smooth panning speed
                         
-                        vrCameraGroup.position.x = Math.cos(newAngle) * distance;
-                        vrCameraGroup.position.z = Math.sin(newAngle) * distance;
-                        vrCameraGroup.lookAt(0, 0, 0);
+                        // Get camera's right vector for left/right movement
+                        const cameraRight = new THREE.Vector3();
+                        camera.getWorldDirection(cameraRight);
+                        cameraRight.cross(camera.up).normalize();
+                        
+                        // Move camera group left/right
+                        vrCameraGroup.position.add(cameraRight.multiplyScalar(panInput * panSpeed));
                     }
                 }
             });
@@ -912,12 +925,12 @@
                     
                     if (deltaPosition.length() > 0.001) { // Minimum movement threshold
                         // Convert controller movement to rotation (like mouse movement)
-                        const rotationSpeed = 10.0; // Much more reasonable speed, like mouse sensitivity
+                        const rotationSpeed = 2.0; // Much more sensitive like mouse - small movements
                         
                         // Horizontal controller movement = horizontal rotation (Y axis)
                         vrTargetRotationY += deltaPosition.x * rotationSpeed;
                         
-                        // Vertical controller movement = vertical rotation (X axis)
+                        // Vertical controller movement = vertical rotation (X axis)  
                         vrTargetRotationX += deltaPosition.y * rotationSpeed;
                         
                         // Clamp vertical rotation to prevent flipping (like mouse)
@@ -1360,17 +1373,22 @@
                 // VR mode - use VR controllers
                 updateVRControls();
                 
-                // Apply VR rotation (both when grabbing and smooth interpolation)
-                // Smooth interpolation like desktop mouse controls
-                vrRotationX += (vrTargetRotationX - vrRotationX) * 0.05; // Same smoothing as desktop
-                vrRotationY += (vrTargetRotationY - vrRotationY) * 0.05;
-                
-                // Apply rotation to camera group (orbit around cube like mouse)
-                const distance = vrCameraGroup.position.length();
-                vrCameraGroup.position.x = Math.cos(vrRotationY) * Math.cos(vrRotationX) * distance;
-                vrCameraGroup.position.y = Math.sin(vrRotationX) * distance;
-                vrCameraGroup.position.z = Math.sin(vrRotationY) * Math.cos(vrRotationX) * distance;
-                vrCameraGroup.lookAt(0, 0, 0);
+                // Apply VR rotation only when grabbing (like desktop mouse)
+                if (isGrabbingCube) {
+                    // Smooth interpolation like desktop mouse controls
+                    vrRotationX += (vrTargetRotationX - vrRotationX) * 0.05;
+                    vrRotationY += (vrTargetRotationY - vrRotationY) * 0.05;
+                    
+                    // Apply rotation to camera group (orbit around cube like mouse)
+                    const distance = Math.max(5, Math.min(50, vrCameraGroup.position.length())); // Clamp distance
+                    vrCameraGroup.position.x = Math.cos(vrRotationY) * Math.cos(vrRotationX) * distance;
+                    vrCameraGroup.position.y = Math.sin(vrRotationX) * distance;
+                    vrCameraGroup.position.z = Math.sin(vrRotationY) * Math.cos(vrRotationX) * distance;
+                    vrCameraGroup.lookAt(0, 0, 0);
+                } else {
+                    // When not grabbing, just look at the center (like desktop)
+                    vrCameraGroup.lookAt(0, 0, 0);
+                }
             } else {
                 // Desktop mode - use mouse/keyboard
                 if (window.updateControls) {
