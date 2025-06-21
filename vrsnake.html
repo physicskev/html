@@ -70,7 +70,10 @@
     
     <button id="vr-button">Enter VR</button>
     
-    <!-- Three.js CDN - using multiple fallback sources -->
+    <!-- WebXR Polyfill for better compatibility -->
+    <script src="https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js"></script>
+    
+    <!-- Three.js CDN with WebXR support -->
     <script src="https://unpkg.com/three@0.144.0/build/three.min.js"></script>
     <script>
         // Fallback CDN if the first one fails
@@ -78,14 +81,11 @@
             document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r144/three.min.js"><\/script>');
         }
     </script>
-    <script>
-        // Second fallback
-        if (typeof THREE === 'undefined') {
-            document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.144.0/build/three.min.js"><\/script>');
-        }
-    </script>
     
     <script>
+        // Initialize WebXR polyfill
+        const polyfill = new WebXRPolyfill();
+        
         // Debug logging function
         function debugLog(message) {
             console.log(message);
@@ -105,7 +105,7 @@
             z: 10
         };
         
-        const SNAKE_SPEED = 2; // units per second
+        const SNAKE_SPEED = 2;
         const SEGMENT_SIZE = 0.3;
         const FOOD_SIZE = 0.2;
         
@@ -154,7 +154,7 @@
                 document.body.appendChild(renderer.domElement);
                 debugLog('Renderer created and added to DOM');
                 
-                // Check WebXR support
+                // Check WebXR support with better detection
                 checkWebXRSupport();
                 
                 // Set up lighting
@@ -206,38 +206,79 @@
         function checkWebXRSupport() {
             const vrButtonElement = document.getElementById('vr-button');
             
+            debugLog('Checking WebXR support...');
+            debugLog('navigator.xr exists: ' + (!!navigator.xr));
+            debugLog('User agent: ' + navigator.userAgent);
+            
             if (!navigator.xr) {
-                debugLog('WebXR not available');
-                vrButtonElement.textContent = 'WebXR Not Available';
-                vrButtonElement.disabled = true;
+                debugLog('WebXR not available - trying to enable polyfill');
+                // The polyfill should have added navigator.xr, check again
+                setTimeout(() => {
+                    if (navigator.xr) {
+                        debugLog('WebXR polyfill activated');
+                        checkVRSupport();
+                    } else {
+                        debugLog('WebXR polyfill failed');
+                        vrButtonElement.textContent = 'WebXR Not Available';
+                        vrButtonElement.disabled = true;
+                    }
+                }, 1000);
                 return;
             }
             
-            debugLog('WebXR available, checking VR support...');
-            
-            navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
-                if (supported) {
-                    debugLog('VR supported!');
-                    vrButtonElement.addEventListener('click', startVRSession);
-                } else {
-                    debugLog('VR not supported');
-                    vrButtonElement.textContent = 'VR Not Supported';
-                    vrButtonElement.disabled = true;
-                }
-            }).catch((error) => {
-                debugLog('Error checking VR support: ' + error.message);
-                vrButtonElement.textContent = 'VR Check Failed';
-                vrButtonElement.disabled = true;
-            });
+            checkVRSupport();
         }
         
-        function startVRSession() {
-            debugLog('Attempting to start VR session...');
+        function checkVRSupport() {
+            const vrButtonElement = document.getElementById('vr-button');
             
-            navigator.xr.requestSession('immersive-vr', {
+            debugLog('WebXR available, checking VR support...');
+            
+            // Try multiple session types for better compatibility
+            const sessionTypes = ['immersive-vr', 'immersive-ar'];
+            let supportFound = false;
+            
+            function tryNextSessionType(index) {
+                if (index >= sessionTypes.length) {
+                    if (!supportFound) {
+                        debugLog('No VR sessions supported - enabling fallback mode');
+                        // Enable a fallback mode that works without VR
+                        vrButtonElement.textContent = 'Play in Browser (No VR)';
+                        vrButtonElement.addEventListener('click', startFallbackMode);
+                    }
+                    return;
+                }
+                
+                const sessionType = sessionTypes[index];
+                debugLog('Checking support for: ' + sessionType);
+                
+                navigator.xr.isSessionSupported(sessionType).then((supported) => {
+                    debugLog(sessionType + ' supported: ' + supported);
+                    if (supported && !supportFound) {
+                        supportFound = true;
+                        debugLog('VR supported! Using: ' + sessionType);
+                        vrButtonElement.addEventListener('click', () => startVRSession(sessionType));
+                    } else {
+                        tryNextSessionType(index + 1);
+                    }
+                }).catch((error) => {
+                    debugLog('Error checking ' + sessionType + ': ' + error.message);
+                    tryNextSessionType(index + 1);
+                });
+            }
+            
+            tryNextSessionType(0);
+        }
+        
+        function startVRSession(sessionType = 'immersive-vr') {
+            debugLog('Attempting to start VR session: ' + sessionType);
+            
+            const sessionInit = {
                 requiredFeatures: ['local-floor'],
-                optionalFeatures: ['bounded-floor']
-            }).then((session) => {
+                optionalFeatures: ['bounded-floor', 'hand-tracking']
+            };
+            
+            navigator.xr.requestSession(sessionType, sessionInit).then((session) => {
                 debugLog('VR session started successfully!');
                 renderer.xr.setSession(session);
                 document.getElementById('vr-button').style.display = 'none';
@@ -253,9 +294,69 @@
             }).catch((error) => {
                 debugLog('Failed to start VR session: ' + error.message);
                 console.error('Failed to start VR session:', error);
-                document.getElementById('vr-button').textContent = 'VR Failed';
-                document.getElementById('vr-button').disabled = true;
+                
+                // Try fallback mode
+                debugLog('Trying fallback mode...');
+                startFallbackMode();
             });
+        }
+        
+        function startFallbackMode() {
+            debugLog('Starting fallback mode (mouse/keyboard controls)');
+            document.getElementById('vr-button').style.display = 'none';
+            document.getElementById('info').innerHTML = '<div>Browser Mode Active!</div><div>Use arrow keys or WASD to play</div>';
+            
+            // Add keyboard controls for fallback
+            setupKeyboardControls();
+        }
+        
+        function setupKeyboardControls() {
+            document.addEventListener('keydown', (event) => {
+                if (gameState.currentState !== GameStates.PLAYING) return;
+                
+                let newDirection = null;
+                
+                switch(event.code) {
+                    case 'ArrowUp':
+                    case 'KeyW':
+                        newDirection = new THREE.Vector3(0, 1, 0);
+                        break;
+                    case 'ArrowDown':
+                    case 'KeyS':
+                        newDirection = new THREE.Vector3(0, -1, 0);
+                        break;
+                    case 'ArrowLeft':
+                    case 'KeyA':
+                        newDirection = new THREE.Vector3(-1, 0, 0);
+                        break;
+                    case 'ArrowRight':
+                    case 'KeyD':
+                        newDirection = new THREE.Vector3(1, 0, 0);
+                        break;
+                    case 'KeyQ':
+                        newDirection = new THREE.Vector3(0, 0, -1);
+                        break;
+                    case 'KeyE':
+                        newDirection = new THREE.Vector3(0, 0, 1);
+                        break;
+                    case 'Space':
+                        togglePause();
+                        event.preventDefault();
+                        break;
+                    case 'KeyR':
+                        if (gameState.currentState === GameStates.GAME_OVER) {
+                            restartGame();
+                        }
+                        break;
+                }
+                
+                if (newDirection) {
+                    snake.setDirection(newDirection);
+                    event.preventDefault();
+                }
+            });
+            
+            debugLog('Keyboard controls enabled');
         }
         
         function initObjectPools() {
@@ -645,7 +746,7 @@
                 
                 context.fillStyle = '#ffffff';
                 context.font = '20px Arial';
-                context.fillText('Press Controller Button to Restart', canvas.width / 2, 140);
+                context.fillText('Press R or Controller Button to Restart', canvas.width / 2, 140);
                 context.fillText('Final Score: 0', canvas.width / 2, 180);
                 
                 const texture = new THREE.CanvasTexture(canvas);
@@ -674,7 +775,7 @@
                 
                 context.fillStyle = '#ffffff';
                 context.font = '16px Arial';
-                context.fillText('Press Button to Resume', canvas.width / 2, 90);
+                context.fillText('Press Space or Button to Resume', canvas.width / 2, 90);
                 
                 const texture = new THREE.CanvasTexture(canvas);
                 const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
@@ -719,7 +820,7 @@
                 
                 context.fillStyle = '#ffffff';
                 context.font = '20px Arial';
-                context.fillText('Press Controller Button to Restart', canvas.width / 2, 140);
+                context.fillText('Press R or Controller Button to Restart', canvas.width / 2, 140);
                 context.fillText('Final Score: ' + this.score, canvas.width / 2, 180);
                 
                 this.gameOverDisplay.material.map.needsUpdate = true;
@@ -761,7 +862,7 @@
         
         // Check if Three.js is loaded and start the game
         let threeJSLoadAttempts = 0;
-        const maxAttempts = 50; // 5 seconds maximum wait
+        const maxAttempts = 50;
         
         function waitForThreeJS() {
             threeJSLoadAttempts++;
