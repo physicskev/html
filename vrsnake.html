@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VR Snake Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        
+        #vr-button {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            background: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            z-index: 100;
+        }
+        
+        #vr-button:hover {
+            background: #0052a3;
+        }
+        
+        #vr-button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 14px;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <div>VR Snake Game</div>
+        <div>Use VR controllers to navigate</div>
+    </div>
+    
+    <button id="vr-button">Enter VR</button>
+    
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- WebXR Polyfill -->
+    <script src="https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js"></script>
+    <!-- VRButton utility -->
+    <script src="https://threejs.org/examples/js/webxr/VRButton.js"></script>
+    
+    <script>
+        // Global variables
+        let scene, camera, renderer, vrButton;
+        let snake, foodManager, gameState;
+        let controllers = [];
+        let gameLoop;
+        
+        // Object pools for performance optimization
+        const objectPools = {
+            cylinderGeometry: null,
+            boxGeometry: null,
+            snakeMaterial: null,
+            snakeHeadMaterial: null,
+            foodMaterial: null
+        };
+        
+        // Game constants
+        const GAME_BOUNDS = {
+            x: 10,
+            y: 10,
+            z: 10
+        };
+        
+        const SNAKE_SPEED = 2; // units per second
+        const SEGMENT_SIZE = 0.3;
+        const FOOD_SIZE = 0.2;
+        
+        // Game state enum
+        const GameStates = {
+            PLAYING: 'playing',
+            PAUSED: 'paused',
+            GAME_OVER: 'game_over'
+        };
+        
+        // Initialize the VR scene
+        function init() {
+            try {
+                // Create scene
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x0a0a0a);
+                
+                // Create camera
+                camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                camera.position.set(0, 0, 5);
+                
+                // Create renderer with VR support
+                renderer = new THREE.WebGLRenderer({ 
+                    antialias: true,
+                    powerPreference: "high-performance" // Optimize for VR performance
+                });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Cap pixel ratio for performance
+                renderer.xr.enabled = true;
+                
+                // Enable VR optimizations
+                renderer.shadowMap.enabled = false; // Disable shadows for better performance
+                renderer.outputEncoding = THREE.sRGBEncoding;
+                
+                document.body.appendChild(renderer.domElement);
+            
+            // Add VR button functionality
+            const vrButtonElement = document.getElementById('vr-button');
+            
+            // Check WebXR support
+            if (navigator.xr) {
+                navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+                    if (supported) {
+                        vrButtonElement.addEventListener('click', () => {
+                            navigator.xr.requestSession('immersive-vr', {
+                                requiredFeatures: ['local-floor'],
+                                optionalFeatures: ['hand-tracking', 'bounded-floor']
+                            }).then((session) => {
+                                renderer.xr.setSession(session);
+                                vrButtonElement.style.display = 'none';
+                                
+                                // Update info display
+                                document.getElementById('info').innerHTML = '<div>VR Mode Active - Use controllers to play!</div>';
+                            }).catch((error) => {
+                                console.error('Failed to start VR session:', error);
+                                vrButtonElement.textContent = 'VR Not Available';
+                                vrButtonElement.disabled = true;
+                            });
+                        });
+                    } else {
+                        vrButtonElement.textContent = 'VR Not Supported';
+                        vrButtonElement.disabled = true;
+                    }
+                });
+            } else {
+                vrButtonElement.textContent = 'WebXR Not Available';
+                vrButtonElement.disabled = true;
+            }
+            
+            // Set up lighting
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 10, 5);
+            scene.add(directionalLight);
+            
+            // Create game boundary visualization (wireframe box)
+            const boundaryGeometry = new THREE.BoxGeometry(GAME_BOUNDS.x * 2, GAME_BOUNDS.y * 2, GAME_BOUNDS.z * 2);
+            const boundaryMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0x333333, 
+                wireframe: true,
+                transparent: true,
+                opacity: 0.3
+            });
+            const boundaryMesh = new THREE.Mesh(boundaryGeometry, boundaryMaterial);
+            scene.add(boundaryMesh);
+            
+            // Initialize object pools
+            initObjectPools();
+            
+            // Initialize game components
+            initGameComponents();
+            
+            // Set up VR controllers
+            setupVRControllers();
+            
+            // Start game loop
+            startGameLoop();
+            
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize);
+            
+            } catch (error) {
+                console.error('Error initializing VR Snake game:', error);
+                document.getElementById('info').innerHTML = '<div style="color: red;">Error loading VR Snake game. Please check browser compatibility.</div>';
+            }
+        }
+        
+        function initObjectPools() {
+            // Create reusable geometries and materials for better performance
+            objectPools.cylinderGeometry = new THREE.CylinderGeometry(SEGMENT_SIZE/2, SEGMENT_SIZE/2, SEGMENT_SIZE);
+            objectPools.boxGeometry = new THREE.BoxGeometry(FOOD_SIZE, FOOD_SIZE, FOOD_SIZE);
+            objectPools.snakeMaterial = new THREE.MeshLambertMaterial({ color: 0x00aa00 });
+            objectPools.snakeHeadMaterial = new THREE.MeshLambertMaterial({ color: 0x00ff00 });
+            objectPools.foodMaterial = new THREE.MeshLambertMaterial({ color: 0xff0000 });
+        }
+        
+        function initGameComponents() {
+            // Initialize snake
+            snake = new Snake();
+            scene.add(snake.group);
+            
+            // Initialize food manager
+            foodManager = new FoodManager();
+            scene.add(foodManager.group);
+            
+            // Initialize game state
+            gameState = new GameState();
+        }
+        
+        function setupVRControllers() {
+            // Set up VR controllers
+            const controller1 = renderer.xr.getController(0);
+            const controller2 = renderer.xr.getController(1);
+            
+            // Add controller event listeners
+            controller1.addEventListener('selectstart', onSelectStart);
+            controller1.addEventListener('selectend', onSelectEnd);
+            controller2.addEventListener('selectstart', onSelectStart);
+            controller2.addEventListener('selectend', onSelectEnd);
+            
+            // Create controller grips for hand tracking
+            const controllerGrip1 = renderer.xr.getControllerGrip(0);
+            const controllerGrip2 = renderer.xr.getControllerGrip(1);
+            
+            // Add visual representation for controllers
+            const controllerGeometry = new THREE.BoxGeometry(0.05, 0.05, 0.2);
+            const controllerMaterial = new THREE.MeshBasicMaterial({ color: 0x888888 });
+            
+            const controllerMesh1 = new THREE.Mesh(controllerGeometry, controllerMaterial);
+            const controllerMesh2 = new THREE.Mesh(controllerGeometry, controllerMaterial);
+            
+            controller1.add(controllerMesh1);
+            controller2.add(controllerMesh2);
+            
+            controllers.push(controller1, controller2);
+            
+            scene.add(controller1);
+            scene.add(controller2);
+            scene.add(controllerGrip1);
+            scene.add(controllerGrip2);
+            
+            // Store controller references for input handling
+            window.vrControllers = {
+                controller1,
+                controller2,
+                controllerGrip1,
+                controllerGrip2
+            };
+        }
+        
+        function onSelectStart(event) {
+            // Handle controller button press
+            if (gameState.currentState === GameStates.GAME_OVER) {
+                restartGame();
+            } else if (gameState.currentState === GameStates.PLAYING) {
+                togglePause();
+            }
+        }
+        
+        function onSelectEnd(event) {
+            // Handle controller button release
+        }
+        
+        function togglePause() {
+            if (gameState.currentState === GameStates.PLAYING) {
+                gameState.currentState = GameStates.PAUSED;
+            } else if (gameState.currentState === GameStates.PAUSED) {
+                gameState.currentState = GameStates.PLAYING;
+            }
+            gameState.updateStateVisuals();
+        }
+        
+        function restartGame() {
+            // Reset snake
+            scene.remove(snake.group);
+            snake = new Snake();
+            scene.add(snake.group);
+            
+            // Reset food
+            scene.remove(foodManager.group);
+            foodManager = new FoodManager();
+            scene.add(foodManager.group);
+            
+            // Reset game state
+            gameState.restart();
+        }
+        
+        function handleControllerInput() {
+            if (!renderer.xr.isPresenting) return;
+            
+            const session = renderer.xr.getSession();
+            if (!session) return;
+            
+            // Get input sources (controllers)
+            const inputSources = session.inputSources;
+            
+            for (let i = 0; i < inputSources.length; i++) {
+                const inputSource = inputSources[i];
+                
+                if (inputSource.gamepad) {
+                    const gamepad = inputSource.gamepad;
+                    
+                    // Check thumbstick input (typically axes 2 and 3)
+                    if (gamepad.axes.length >= 4) {
+                        const thumbstickX = gamepad.axes[2];
+                        const thumbstickY = gamepad.axes[3];
+                        
+                        // Apply deadzone
+                        const deadzone = 0.3;
+                        if (Math.abs(thumbstickX) > deadzone || Math.abs(thumbstickY) > deadzone) {
+                            // Determine direction based on thumbstick input
+                            let newDirection = null;
+                            
+                            // Check for additional axes for up/down movement (right thumbstick)
+                            let upDownInput = 0;
+                            if (gamepad.axes.length >= 6) {
+                                upDownInput = gamepad.axes[5]; // Right thumbstick Y-axis
+                            }
+                            
+                            // Prioritize up/down movement if significant
+                            if (Math.abs(upDownInput) > deadzone) {
+                                if (upDownInput > deadzone) {
+                                    newDirection = new THREE.Vector3(0, -1, 0); // Down
+                                } else if (upDownInput < -deadzone) {
+                                    newDirection = new THREE.Vector3(0, 1, 0); // Up
+                                }
+                            } else if (Math.abs(thumbstickX) > Math.abs(thumbstickY)) {
+                                // Horizontal movement
+                                if (thumbstickX > deadzone) {
+                                    newDirection = new THREE.Vector3(1, 0, 0); // Right
+                                } else if (thumbstickX < -deadzone) {
+                                    newDirection = new THREE.Vector3(-1, 0, 0); // Left
+                                }
+                            } else {
+                                // Forward/backward movement
+                                if (thumbstickY > deadzone) {
+                                    newDirection = new THREE.Vector3(0, 0, 1); // Forward
+                                } else if (thumbstickY < -deadzone) {
+                                    newDirection = new THREE.Vector3(0, 0, -1); // Backward
+                                }
+                            }
+                            
+                            if (newDirection && gameState.currentState === GameStates.PLAYING) {
+                                snake.setDirection(newDirection);
+                            }
+                        }
+                    }
+                    
+                    // Check for additional controller buttons
+                    if (gamepad.buttons.length > 0) {
+                        // Button 0 is typically the trigger
+                        if (gamepad.buttons[0].pressed) {
+                            // Could be used for additional functionality
+                        }
+                        
+                        // Button 1 is typically the grip
+                        if (gamepad.buttons[1].pressed) {
+                            // Could be used for pause/restart
+                        }
+                    }
+                }
+            }
+        }
+        
+        function startGameLoop() {
+            renderer.setAnimationLoop(gameLoop);
+        }
+        
+        function gameLoop(timestamp) {
+            try {
+                // Handle VR controller input
+                handleControllerInput();
+                
+                if (gameState.currentState === GameStates.PLAYING) {
+                    snake.update(timestamp);
+                    foodManager.update();
+                    
+                    // Check collisions
+                    checkCollisions();
+                }
+                
+                renderer.render(scene, camera);
+            } catch (error) {
+                console.error('Error in game loop:', error);
+                // Continue the loop even if there's an error
+            }
+        }
+        
+        function checkCollisions() {
+            // Food collision
+            const consumedFood = foodManager.checkCollision(snake.getHeadPosition());
+            if (consumedFood) {
+                snake.grow();
+                gameState.incrementScore();
+                foodManager.spawnFood();
+            }
+            
+            // Self collision
+            if (snake.checkSelfCollision()) {
+                gameState.gameOver();
+            }
+        }
+        
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // Snake class
+        class Snake {
+            constructor() {
+                this.group = new THREE.Group();
+                this.segments = [];
+                this.direction = new THREE.Vector3(1, 0, 0); // Initial direction: right
+                this.speed = SNAKE_SPEED;
+                this.lastMoveTime = 0;
+                this.moveInterval = 1000 / this.speed; // milliseconds between moves
+                
+                // Create initial head segment
+                this.addSegment(new THREE.Vector3(0, 0, 0));
+            }
+            
+            addSegment(position) {
+                // Use object pools for better performance
+                const geometry = objectPools.cylinderGeometry;
+                const material = this.segments.length === 0 ? objectPools.snakeHeadMaterial : objectPools.snakeMaterial;
+                const segment = new THREE.Mesh(geometry, material);
+                segment.position.copy(position);
+                
+                this.segments.push(segment);
+                this.group.add(segment);
+            }
+            
+            update(timestamp) {
+                if (timestamp - this.lastMoveTime > this.moveInterval) {
+                    this.move();
+                    this.lastMoveTime = timestamp;
+                }
+            }
+            
+            move() {
+                if (this.segments.length === 0) return;
+                
+                // Store previous positions
+                const previousPositions = this.segments.map(segment => segment.position.clone());
+                
+                // Move head
+                const head = this.segments[0];
+                head.position.add(this.direction.clone().multiplyScalar(SEGMENT_SIZE));
+                
+                // Apply boundary wrapping
+                this.wrapPosition(head.position);
+                
+                // Move body segments to follow
+                for (let i = 1; i < this.segments.length; i++) {
+                    this.segments[i].position.copy(previousPositions[i - 1]);
+                }
+            }
+            
+            wrapPosition(position) {
+                if (position.x > GAME_BOUNDS.x) position.x = -GAME_BOUNDS.x;
+                if (position.x < -GAME_BOUNDS.x) position.x = GAME_BOUNDS.x;
+                if (position.y > GAME_BOUNDS.y) position.y = -GAME_BOUNDS.y;
+                if (position.y < -GAME_BOUNDS.y) position.y = GAME_BOUNDS.y;
+                if (position.z > GAME_BOUNDS.z) position.z = -GAME_BOUNDS.z;
+                if (position.z < -GAME_BOUNDS.z) position.z = GAME_BOUNDS.z;
+            }
+            
+            grow() {
+                const lastSegment = this.segments[this.segments.length - 1];
+                const newPosition = lastSegment.position.clone();
+                this.addSegment(newPosition);
+            }
+            
+            getHeadPosition() {
+                return this.segments.length > 0 ? this.segments[0].position : new THREE.Vector3();
+            }
+            
+            checkSelfCollision() {
+                if (this.segments.length < 4) return false; // Can't collide with self if too short
+                
+                const headPosition = this.getHeadPosition();
+                
+                for (let i = 3; i < this.segments.length; i++) {
+                    const distance = headPosition.distanceTo(this.segments[i].position);
+                    if (distance < SEGMENT_SIZE) {
+                        return true;
+                    }
+                }
+                
+                return false;
+            }
+            
+            setDirection(newDirection) {
+                // Prevent reversing into self
+                if (this.segments.length > 1) {
+                    const currentDirection = this.direction.clone().normalize();
+                    const proposedDirection = newDirection.clone().normalize();
+                    
+                    if (currentDirection.dot(proposedDirection) < -0.5) {
+                        return; // Don't allow 180-degree turns
+                    }
+                }
+                
+                this.direction = newDirection.clone().normalize();
+            }
+        }
+        
+        // Food Manager class
+        class FoodManager {
+            constructor() {
+                this.group = new THREE.Group();
+                this.foods = [];
+                this.maxFoods = 5;
+                
+                // Spawn initial food
+                for (let i = 0; i < this.maxFoods; i++) {
+                    this.spawnFood();
+                }
+            }
+            
+            spawnFood() {
+                if (this.foods.length >= this.maxFoods) return;
+                
+                // Use object pools for better performance
+                const geometry = objectPools.boxGeometry;
+                const material = objectPools.foodMaterial;
+                const food = new THREE.Mesh(geometry, material);
+                
+                // Find a position that doesn't intersect with snake
+                let validPosition = false;
+                let attempts = 0;
+                const maxAttempts = 50;
+                
+                while (!validPosition && attempts < maxAttempts) {
+                    food.position.set(
+                        (Math.random() - 0.5) * GAME_BOUNDS.x * 1.8,
+                        (Math.random() - 0.5) * GAME_BOUNDS.y * 1.8,
+                        (Math.random() - 0.5) * GAME_BOUNDS.z * 1.8
+                    );
+                    
+                    // Check if position is too close to snake segments
+                    validPosition = true;
+                    if (snake && snake.segments) {
+                        for (let segment of snake.segments) {
+                            const distance = food.position.distanceTo(segment.position);
+                            if (distance < SEGMENT_SIZE * 2) {
+                                validPosition = false;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    attempts++;
+                }
+                
+                this.foods.push(food);
+                this.group.add(food);
+            }
+            
+            checkCollision(headPosition) {
+                for (let i = 0; i < this.foods.length; i++) {
+                    const food = this.foods[i];
+                    const distance = headPosition.distanceTo(food.position);
+                    
+                    if (distance < SEGMENT_SIZE) {
+                        // Remove consumed food
+                        this.group.remove(food);
+                        this.foods.splice(i, 1);
+                        return true;
+                    }
+                }
+                
+                return false;
+            }
+            
+            update() {
+                // Rotate food for visual appeal
+                this.foods.forEach(food => {
+                    food.rotation.x += 0.02;
+                    food.rotation.y += 0.02;
+                });
+            }
+        }
+        
+        // Game State class
+        class GameState {
+            constructor() {
+                this.currentState = GameStates.PLAYING;
+                this.score = 0;
+                this.createScoreDisplay();
+                this.createGameOverDisplay();
+                this.createPauseDisplay();
+            }
+            
+            createScoreDisplay() {
+                // Create 3D text for score (simplified version)
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = 256;
+                canvas.height = 64;
+                
+                context.fillStyle = '#ffffff';
+                context.font = '24px Arial';
+                context.fillText('Score: ' + this.score, 10, 40);
+                
+                const texture = new THREE.CanvasTexture(canvas);
+                const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+                const geometry = new THREE.PlaneGeometry(2, 0.5);
+                
+                this.scoreDisplay = new THREE.Mesh(geometry, material);
+                this.scoreDisplay.position.set(0, 8, 0);
+                scene.add(this.scoreDisplay);
+            }
+            
+            createGameOverDisplay() {
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = 512;
+                canvas.height = 256;
+                
+                // Background
+                context.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                context.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Game Over text
+                context.fillStyle = '#ff0000';
+                context.font = 'bold 36px Arial';
+                context.textAlign = 'center';
+                context.fillText('GAME OVER', canvas.width / 2, 80);
+                
+                // Instructions
+                context.fillStyle = '#ffffff';
+                context.font = '20px Arial';
+                context.fillText('Press Controller Button to Restart', canvas.width / 2, 140);
+                context.fillText('Final Score: 0', canvas.width / 2, 180);
+                
+                const texture = new THREE.CanvasTexture(canvas);
+                const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+                const geometry = new THREE.PlaneGeometry(4, 2);
+                
+                this.gameOverDisplay = new THREE.Mesh(geometry, material);
+                this.gameOverDisplay.position.set(0, 0, -2);
+                this.gameOverDisplay.visible = false;
+                scene.add(this.gameOverDisplay);
+            }
+            
+            createPauseDisplay() {
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = 256;
+                canvas.height = 128;
+                
+                // Background
+                context.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                context.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Pause text
+                context.fillStyle = '#ffff00';
+                context.font = 'bold 32px Arial';
+                context.textAlign = 'center';
+                context.fillText('PAUSED', canvas.width / 2, 50);
+                
+                // Instructions
+                context.fillStyle = '#ffffff';
+                context.font = '16px Arial';
+                context.fillText('Press Button to Resume', canvas.width / 2, 90);
+                
+                const texture = new THREE.CanvasTexture(canvas);
+                const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+                const geometry = new THREE.PlaneGeometry(3, 1.5);
+                
+                this.pauseDisplay = new THREE.Mesh(geometry, material);
+                this.pauseDisplay.position.set(0, 0, -1);
+                this.pauseDisplay.visible = false;
+                scene.add(this.pauseDisplay);
+            }
+            
+            incrementScore() {
+                this.score++;
+                this.updateScoreDisplay();
+            }
+            
+            updateScoreDisplay() {
+                const canvas = this.scoreDisplay.material.map.image;
+                const context = canvas.getContext('2d');
+                
+                context.clearRect(0, 0, canvas.width, canvas.height);
+                context.fillStyle = '#ffffff';
+                context.font = '24px Arial';
+                context.fillText('Score: ' + this.score, 10, 40);
+                
+                this.scoreDisplay.material.map.needsUpdate = true;
+            }
+            
+            updateGameOverDisplay() {
+                const canvas = this.gameOverDisplay.material.map.image;
+                const context = canvas.getContext('2d');
+                
+                // Clear and redraw
+                context.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Background
+                context.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                context.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Game Over text
+                context.fillStyle = '#ff0000';
+                context.font = 'bold 36px Arial';
+                context.textAlign = 'center';
+                context.fillText('GAME OVER', canvas.width / 2, 80);
+                
+                // Instructions
+                context.fillStyle = '#ffffff';
+                context.font = '20px Arial';
+                context.fillText('Press Controller Button to Restart', canvas.width / 2, 140);
+                context.fillText('Final Score: ' + this.score, canvas.width / 2, 180);
+                
+                this.gameOverDisplay.material.map.needsUpdate = true;
+            }
+            
+            gameOver() {
+                this.currentState = GameStates.GAME_OVER;
+                this.updateGameOverDisplay();
+                this.gameOverDisplay.visible = true;
+                this.pauseDisplay.visible = false;
+                console.log('Game Over! Final Score:', this.score);
+            }
+            
+            restart() {
+                this.currentState = GameStates.PLAYING;
+                this.score = 0;
+                this.updateScoreDisplay();
+                this.gameOverDisplay.visible = false;
+                this.pauseDisplay.visible = false;
+            }
+            
+            updateStateVisuals() {
+                // Update visual feedback based on current state
+                switch (this.currentState) {
+                    case GameStates.PLAYING:
+                        this.pauseDisplay.visible = false;
+                        this.gameOverDisplay.visible = false;
+                        break;
+                    case GameStates.PAUSED:
+                        this.pauseDisplay.visible = true;
+                        this.gameOverDisplay.visible = false;
+                        break;
+                    case GameStates.GAME_OVER:
+                        this.pauseDisplay.visible = false;
+                        this.gameOverDisplay.visible = true;
+                        break;
+                }
+            }
+        }
+        
+        // Start the game when page loads
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html> 
