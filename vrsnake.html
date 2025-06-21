@@ -70,8 +70,20 @@
     
     <button id="vr-button">Enter VR</button>
     
-    <!-- Three.js CDN - using a more stable version -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r144/three.min.js"></script>
+    <!-- Three.js CDN - using multiple fallback sources -->
+    <script src="https://unpkg.com/three@0.144.0/build/three.min.js"></script>
+    <script>
+        // Fallback CDN if the first one fails
+        if (typeof THREE === 'undefined') {
+            document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r144/three.min.js"><\/script>');
+        }
+    </script>
+    <script>
+        // Second fallback
+        if (typeof THREE === 'undefined') {
+            document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.144.0/build/three.min.js"><\/script>');
+        }
+    </script>
     
     <script>
         // Debug logging function
@@ -747,10 +759,31 @@
             }
         }
         
+        // Check if Three.js is loaded and start the game
+        let threeJSLoadAttempts = 0;
+        const maxAttempts = 50; // 5 seconds maximum wait
+        
+        function waitForThreeJS() {
+            threeJSLoadAttempts++;
+            
+            if (typeof THREE !== 'undefined') {
+                debugLog('THREE.js loaded successfully');
+                debugLog('THREE.js version: ' + THREE.REVISION);
+                debugLog('Starting game initialization...');
+                init();
+            } else if (threeJSLoadAttempts >= maxAttempts) {
+                debugLog('Failed to load THREE.js after ' + maxAttempts + ' attempts');
+                document.getElementById('info').innerHTML = '<div style="color: red;">Failed to load Three.js library. Please check your internet connection and try refreshing the page.</div>';
+            } else {
+                debugLog('Waiting for THREE.js to load... (attempt ' + threeJSLoadAttempts + '/' + maxAttempts + ')');
+                setTimeout(waitForThreeJS, 100);
+            }
+        }
+        
         // Start the game when page loads
         window.addEventListener('load', () => {
-            debugLog('Page loaded, starting initialization...');
-            init();
+            debugLog('Page load event fired');
+            waitForThreeJS();
         });
         
         // Add error handling for unhandled errors
