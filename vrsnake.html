@@ -303,6 +303,7 @@
         
         function startFallbackMode() {
             debugLog('Starting fallback mode (mouse/keyboard controls)');
+            debugLog('Controls: WASD/Arrows=Turn relative to snake, Q/E=Backward/Forward, Space=Pause, R=Restart');
             document.getElementById('vr-button').style.display = 'none';
             document.getElementById('info').innerHTML = '<div>Browser Mode Active!</div><div>Use arrow keys or WASD to play</div>';
             
@@ -314,30 +315,30 @@
             document.addEventListener('keydown', (event) => {
                 if (gameState.currentState !== GameStates.PLAYING) return;
                 
-                let newDirection = null;
+                let relativeDirection = null;
                 
                 switch(event.code) {
                     case 'ArrowUp':
                     case 'KeyW':
-                        newDirection = new THREE.Vector3(0, 1, 0);
+                        relativeDirection = 'up';
                         break;
                     case 'ArrowDown':
                     case 'KeyS':
-                        newDirection = new THREE.Vector3(0, -1, 0);
+                        relativeDirection = 'down';
                         break;
                     case 'ArrowLeft':
                     case 'KeyA':
-                        newDirection = new THREE.Vector3(-1, 0, 0);
+                        relativeDirection = 'left';
                         break;
                     case 'ArrowRight':
                     case 'KeyD':
-                        newDirection = new THREE.Vector3(1, 0, 0);
+                        relativeDirection = 'right';
                         break;
                     case 'KeyQ':
-                        newDirection = new THREE.Vector3(0, 0, -1);
+                        relativeDirection = 'backward';
                         break;
                     case 'KeyE':
-                        newDirection = new THREE.Vector3(0, 0, 1);
+                        relativeDirection = 'forward';
                         break;
                     case 'Space':
                         togglePause();
@@ -350,13 +351,13 @@
                         break;
                 }
                 
-                if (newDirection) {
-                    snake.setDirection(newDirection);
+                if (relativeDirection) {
+                    snake.setRelativeDirection(relativeDirection);
                     event.preventDefault();
                 }
             });
             
-            debugLog('Keyboard controls enabled');
+            debugLog('Keyboard controls enabled (relative movement)');
         }
         
         function initObjectPools() {
@@ -468,26 +469,34 @@
                         const thumbstickX = gamepad.axes[2];
                         const thumbstickY = gamepad.axes[3];
                         
+                        // Check for right thumbstick (up/down movement)
+                        let rightThumbstickY = 0;
+                        if (gamepad.axes.length >= 6) {
+                            rightThumbstickY = gamepad.axes[5];
+                        }
+                        
                         const deadzone = 0.3;
-                        if (Math.abs(thumbstickX) > deadzone || Math.abs(thumbstickY) > deadzone) {
-                            let newDirection = null;
-                            
-                            if (Math.abs(thumbstickX) > Math.abs(thumbstickY)) {
-                                if (thumbstickX > deadzone) {
-                                    newDirection = new THREE.Vector3(1, 0, 0); // Right
-                                } else if (thumbstickX < -deadzone) {
-                                    newDirection = new THREE.Vector3(-1, 0, 0); // Left
+                        
+                        // Handle relative directional input
+                        if (Math.abs(thumbstickX) > deadzone || Math.abs(thumbstickY) > deadzone || Math.abs(rightThumbstickY) > deadzone) {
+                            if (gameState.currentState === GameStates.PLAYING) {
+                                // Get relative direction based on current snake direction
+                                let relativeDirection = null;
+                                
+                                if (Math.abs(rightThumbstickY) > deadzone) {
+                                    // Up/down movement (relative to current direction)
+                                    relativeDirection = rightThumbstickY > deadzone ? 'down' : 'up';
+                                } else if (Math.abs(thumbstickX) > Math.abs(thumbstickY)) {
+                                    // Left/right movement (relative to current direction)
+                                    relativeDirection = thumbstickX > deadzone ? 'right' : 'left';
+                                } else {
+                                    // Forward/backward movement (relative to current direction)
+                                    relativeDirection = thumbstickY > deadzone ? 'backward' : 'forward';
                                 }
-                            } else {
-                                if (thumbstickY > deadzone) {
-                                    newDirection = new THREE.Vector3(0, 0, 1); // Forward
-                                } else if (thumbstickY < -deadzone) {
-                                    newDirection = new THREE.Vector3(0, 0, -1); // Backward
+                                
+                                if (relativeDirection) {
+                                    snake.setRelativeDirection(relativeDirection);
                                 }
-                            }
-                            
-                            if (newDirection && gameState.currentState === GameStates.PLAYING) {
-                                snake.setDirection(newDirection);
                             }
                         }
                     }
@@ -627,6 +636,57 @@
                 }
                 
                 this.direction = newDirection.clone().normalize();
+            }
+            
+            setRelativeDirection(relativeDirection) {
+                // Calculate new direction relative to current direction
+                const currentDir = this.direction.clone().normalize();
+                let newDirection = null;
+                
+                // Create a local coordinate system based on current direction
+                const forward = currentDir.clone();
+                
+                // Calculate right vector (cross product of forward and world up)
+                const worldUp = new THREE.Vector3(0, 1, 0);
+                let right = new THREE.Vector3().crossVectors(forward, worldUp);
+                
+                // If forward is parallel to world up, use world forward as reference
+                if (right.length() < 0.1) {
+                    const worldForward = new THREE.Vector3(0, 0, 1);
+                    right = new THREE.Vector3().crossVectors(forward, worldForward);
+                }
+                right.normalize();
+                
+                // Calculate up vector (cross product of right and forward)
+                const up = new THREE.Vector3().crossVectors(right, forward);
+                up.normalize();
+                
+                // Apply relative movement
+                switch(relativeDirection) {
+                    case 'left':
+                        newDirection = right.clone().multiplyScalar(-1);
+                        break;
+                    case 'right':
+                        newDirection = right.clone();
+                        break;
+                    case 'up':
+                        newDirection = up.clone();
+                        break;
+                    case 'down':
+                        newDirection = up.clone().multiplyScalar(-1);
+                        break;
+                    case 'forward':
+                        // Continue in current direction - no change needed
+                        return;
+                    case 'backward':
+                        newDirection = forward.clone().multiplyScalar(-1);
+                        break;
+                }
+                
+                if (newDirection) {
+                    this.setDirection(newDirection);
+                    debugLog('Snake turned ' + relativeDirection + ' (relative to current direction)');
+                }
             }
         }
         
