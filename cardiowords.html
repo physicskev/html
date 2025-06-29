@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cardiology Wordle - Medical Word Puzzle</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            color: #333;
+        }
+
+        .header {
+            text-align: center;
+            padding: 20px;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-bottom: 3px solid #0066cc;
+        }
+
+        .header h1 {
+            color: #0066cc;
+            font-size: 2.5rem;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1rem;
+            font-weight: 400;
+        }
+
+        .game-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .game-area {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            padding: 30px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .word-info {
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #0066cc;
+        }
+
+        .word-length {
+            font-size: 1.1rem;
+            color: #0066cc;
+            font-weight: 600;
+        }
+
+        .attempts-counter {
+            font-size: 1rem;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .game-grid {
+            display: grid;
+            gap: 8px;
+            margin: 20px 0;
+            justify-content: center;
+        }
+
+        .guess-row {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .letter-cell {
+            width: 50px;
+            height: 50px;
+            border: 2px solid #d1d5db;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            background: white;
+            transition: all 0.3s ease;
+        }
+
+        .letter-cell.correct {
+            background: #10b981;
+            color: white;
+            border-color: #10b981;
+        }
+
+        .letter-cell.present {
+            background: #f59e0b;
+            color: white;
+            border-color: #f59e0b;
+        }
+
+        .letter-cell.absent {
+            background: #6b7280;
+            color: white;
+            border-color: #6b7280;
+        }
+
+        .letter-cell.filled {
+            border-color: #0066cc;
+            background: #f0f7ff;
+        }
+
+        .input-section {
+            margin: 20px 0;
+        }
+
+        .guess-input {
+            width: 100%;
+            max-width: 300px;
+            padding: 12px;
+            font-size: 1.2rem;
+            text-align: center;
+            text-transform: uppercase;
+            border: 2px solid #d1d5db;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            transition: border-color 0.3s ease;
+        }
+
+        .guess-input:focus {
+            outline: none;
+            border-color: #0066cc;
+            box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #0066cc;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0052a3;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            background: #d1d5db;
+            color: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .message {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .message.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+
+        .message.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+
+        .message.info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #3b82f6;
+        }
+
+        .message.hidden {
+            display: none;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 15px;
+            color: #666;
+            font-size: 0.9rem;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        @media (max-width: 640px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .game-area {
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            .letter-cell {
+                width: 40px;
+                height: 40px;
+                font-size: 1.2rem;
+            }
+            
+            .guess-input {
+                font-size: 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Cardiology Wordle</h1>
+        <p>Guess the cardiology term - Professional word puzzle for healthcare</p>
+    </div>
+
+    <div class="game-container">
+        <div class="game-area">
+            <div class="word-info">
+                <div class="word-length">Word Length: <span id="wordLengthDisplay">5</span> letters</div>
+                <div class="attempts-counter">Attempt: <span id="attemptCounter">1</span> of 6</div>
+            </div>
+
+            <div id="gameGrid" class="game-grid">
+                <!-- Grid will be populated by JavaScript -->
+            </div>
+
+            <div class="input-section">
+                <input 
+                    type="text" 
+                    id="guessInput" 
+                    class="guess-input" 
+                    placeholder="Enter your guess..."
+                    maxlength="15"
+                    autocomplete="off"
+                >
+                <div class="button-group">
+                    <button id="submitBtn" class="btn btn-primary">Submit Guess</button>
+                    <button id="newGameBtn" class="btn btn-secondary">New Game</button>
+                </div>
+            </div>
+
+            <div id="messageArea" class="message hidden">
+                <!-- Messages will be displayed here -->
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Cardiology Wordle - A professional word puzzle for healthcare professionals</p>
+    </div>
+
+    <script>
+        // Cardiology word database organized by length
+        const CARDIOLOGY_WORDS = {
+            3: ['ECG', 'EKG', 'CAD', 'CHF', 'PCI', 'LAD', 'RCA', 'LCX'],
+            4: ['ECHO', 'APEX', 'CATH', 'STENT'].filter(w => w.length === 4),
+            5: ['AORTA', 'VALVE', 'STENT', 'HEART', 'BLOOD', 'PULSE', 'ANGINA'],
+            6: ['MITRAL', 'ATRIAL', 'BYPASS', 'SEPTAL', 'OXYGEN', 'MURMUR'],
+            7: ['SYSTOLE', 'ABLATION'].filter(w => w.length === 7),
+            8: ['DIASTOLE', 'STENOSIS', 'ISCHEMIA'].filter(w => w.length === 8),
+            9: ['TRICUSPID', 'EJECTION'].filter(w => w.length === 9),
+            10: ['MYOCARDIAL', 'PERICARDIUM'].filter(w => w.length === 10),
+            11: ['BRADYCARDIA', 'TACHYCARDIA'].filter(w => w.length === 11),
+            12: ['HYPERTENSION'].filter(w => w.length === 12)
+        };
+
+        // Game state
+        let currentWord = '';
+        let currentAttempt = 1;
+        let gameOver = false;
+        let guesses = [];
+
+        // DOM elements
+        const gameGrid = document.getElementById('gameGrid');
+        const guessInput = document.getElementById('guessInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const newGameBtn = document.getElementById('newGameBtn');
+        const wordLengthDisplay = document.getElementById('wordLengthDisplay');
+        const attemptCounter = document.getElementById('attemptCounter');
+        const messageArea = document.getElementById('messageArea');
+
+        // Initialize game
+        function initGame() {
+            // Select random word length between 4-8 for better gameplay
+            const availableLengths = [4, 5, 6, 7, 8];
+            const randomLength = availableLengths[Math.floor(Math.random() * availableLengths.length)];
+            
+            // Get words for selected length
+            const wordsOfLength = CARDIOLOGY_WORDS[randomLength] || CARDIOLOGY_WORDS[5];
+            currentWord = wordsOfLength[Math.floor(Math.random() * wordsOfLength.length)].toUpperCase();
+            
+            currentAttempt = 1;
+            gameOver = false;
+            guesses = [];
+            
+            // Update UI
+            wordLengthDisplay.textContent = currentWord.length;
+            attemptCounter.textContent = currentAttempt;
+            guessInput.value = '';
+            guessInput.maxLength = currentWord.length;
+            guessInput.disabled = false;
+            submitBtn.disabled = false;
+            
+            // Clear message
+            hideMessage();
+            
+            // Create game grid
+            createGameGrid();
+            
+            console.log('New game started. Word:', currentWord); // For debugging
+        }
+
+        function createGameGrid() {
+            gameGrid.innerHTML = '';
+            
+            for (let attempt = 0; attempt < 6; attempt++) {
+                const row = document.createElement('div');
+                row.className = 'guess-row';
+                row.id = `row-${attempt}`;
+                
+                for (let letter = 0; letter < currentWord.length; letter++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'letter-cell';
+                    cell.id = `cell-${attempt}-${letter}`;
+                    row.appendChild(cell);
+                }
+                
+                gameGrid.appendChild(row);
+            }
+        }
+
+        function submitGuess() {
+            const guess = guessInput.value.toUpperCase().trim();
+            
+            // Validate guess
+            if (guess.length !== currentWord.length) {
+                showMessage(`Please enter a ${currentWord.length}-letter word`, 'error');
+                return;
+            }
+            
+            if (!/^[A-Z]+$/.test(guess)) {
+                showMessage('Please enter only letters', 'error');
+                return;
+            }
+            
+            // Process guess
+            processGuess(guess);
+            guesses.push(guess);
+            
+            // Check if game is won
+            if (guess === currentWord) {
+                gameOver = true;
+                showMessage(`Congratulations! You found the word: ${currentWord}`, 'success');
+                guessInput.disabled = true;
+                submitBtn.disabled = true;
+                return;
+            }
+            
+            // Check if game is lost
+            if (currentAttempt >= 6) {
+                gameOver = true;
+                showMessage(`Game over! The word was: ${currentWord}`, 'error');
+                guessInput.disabled = true;
+                submitBtn.disabled = true;
+                return;
+            }
+            
+            // Continue to next attempt
+            currentAttempt++;
+            attemptCounter.textContent = currentAttempt;
+            guessInput.value = '';
+        }
+
+        function processGuess(guess) {
+            const rowIndex = currentAttempt - 1;
+            const row = document.getElementById(`row-${rowIndex}`);
+            
+            // Create arrays to track letter usage
+            const wordLetters = currentWord.split('');
+            const guessLetters = guess.split('');
+            const result = new Array(guess.length).fill('absent');
+            
+            // First pass: mark correct positions
+            for (let i = 0; i < guessLetters.length; i++) {
+                if (guessLetters[i] === wordLetters[i]) {
+                    result[i] = 'correct';
+                    wordLetters[i] = null; // Mark as used
+                    guessLetters[i] = null; // Mark as used
+                }
+            }
+            
+            // Second pass: mark present letters
+            for (let i = 0; i < guessLetters.length; i++) {
+                if (guessLetters[i] && wordLetters.includes(guessLetters[i])) {
+                    result[i] = 'present';
+                    const letterIndex = wordLetters.indexOf(guessLetters[i]);
+                    wordLetters[letterIndex] = null; // Mark as used
+                }
+            }
+            
+            // Update UI
+            for (let i = 0; i < guess.length; i++) {
+                const cell = document.getElementById(`cell-${rowIndex}-${i}`);
+                cell.textContent = guess[i];
+                cell.className = `letter-cell ${result[i]}`;
+            }
+        }
+
+        function showMessage(text, type) {
+            messageArea.textContent = text;
+            messageArea.className = `message ${type}`;
+        }
+
+        function hideMessage() {
+            messageArea.className = 'message hidden';
+        }
+
+        // Event listeners
+        submitBtn.addEventListener('click', submitGuess);
+        newGameBtn.addEventListener('click', initGame);
+
+        guessInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                submitGuess();
+            }
+        });
+
+        guessInput.addEventListener('input', function(e) {
+            // Convert to uppercase and restrict to letters only
+            let value = e.target.value.toUpperCase().replace(/[^A-Z]/g, '');
+            e.target.value = value;
+        });
+
+        // Initialize the game when page loads
+        window.addEventListener('load', initGame);
+    </script>
+</body>
+</html> 
